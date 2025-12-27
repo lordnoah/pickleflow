@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Users,
@@ -9,25 +8,18 @@ import {
   Trash2,
   RotateCcw,
   CheckCircle2,
-  Layout,
   Clock,
-  ChevronRight,
   ChevronLeft,
   AlertCircle,
   Timer,
   Pause,
   PlayCircle,
-  CalendarDays,
-  ChevronDown,
   Edit2,
-  Sparkles,
-  Share2,
-  Minus
+  Share2
 } from 'lucide-react';
 import { Card } from './components/Card';
 import { PickleFlowLogo, DEFAULT_PLAYERS, ROUND_OPTIONS, DURATION_OPTIONS, COURT_OPTIONS } from './constants';
 import { Player, Match, Round, PlayerStats, View } from './types';
-import { getSessionInsights } from './services/geminiService';
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('setup');
@@ -41,8 +33,6 @@ const App: React.FC = () => {
   const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
   const [courtCount, setCourtCount] = useState(3);
   const [numRounds, setNumRounds] = useState(8);
-  const [insights, setInsights] = useState<string | null>(null);
-  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
 
   // Timer States
   const [timerActive, setTimerActive] = useState(false);
@@ -253,16 +243,9 @@ const App: React.FC = () => {
     });
   }, [rounds, players]);
 
-  const handleGetInsights = async () => {
-    setIsGeneratingInsights(true);
-    const result = await getSessionInsights(leaderboard);
-    setInsights(result);
-    setIsGeneratingInsights(false);
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-8 pt-4">
-      {/* Top Header - Restored and Enhanced */}
+      {/* Top Header */}
       <header className="sticky top-0 z-[60] bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 sm:py-5 mb-6">
         <div className="max-w-2xl mx-auto flex flex-col gap-4">
           <div className="flex justify-between items-center">
@@ -369,7 +352,7 @@ const App: React.FC = () => {
 
         {view === 'play' && rounds.length > 0 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-            {/* Timer Strip - Sticky just below the nav */}
+            {/* Timer Strip */}
             <div className={`sticky top-32 z-50 flex items-center justify-between p-4 rounded-2xl shadow-xl transition-all border-l-8 ${timeLeft === 0 ? 'bg-rose-50 border-rose-500' : timerActive ? 'bg-white dark:bg-slate-800 border-lime-500' : 'bg-slate-200 border-slate-400'}`}>
               <div className="flex items-center gap-4">
                 <span className={`text-5xl font-black tabular-nums tracking-tighter ${timeLeft < 60 && timerActive ? 'text-rose-600 animate-pulse' : ''}`}>{formatTime(timeLeft)}</span>
@@ -385,21 +368,18 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Navigation for Rounds */}
             <div className="flex justify-between items-center py-2">
               <button onClick={() => currentRoundIndex > 0 && setCurrentRoundIndex(currentRoundIndex - 1)} disabled={currentRoundIndex === 0} className="p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm disabled:opacity-30 border-2 border-slate-100 dark:border-slate-700"><ChevronLeft size={28}/></button>
               <h2 className="font-black text-2xl italic uppercase tracking-tighter">Round {currentRoundIndex + 1}</h2>
               <button onClick={nextRound} className="p-4 bg-slate-900 text-white rounded-2xl shadow-lg flex items-center gap-2 font-black text-sm uppercase px-6">{currentRoundIndex < rounds.length - 1 ? "Next" : "Finish"}</button>
             </div>
 
-            {/* Match Cards */}
             <div className="grid gap-6">
               {rounds[currentRoundIndex].matches.map((m) => (
                 <Card key={m.id} className={`relative pt-14 pb-6 transition-all ${m.completed ? 'opacity-40 scale-[0.97]' : 'border-t-8 border-t-lime-500 shadow-xl'}`}>
                    <div className={`absolute top-0 right-0 px-6 py-2 rounded-bl-3xl text-xs font-black text-white uppercase tracking-widest shadow-sm ${m.completed ? 'bg-slate-400' : 'bg-lime-500'}`}>Court {m.court}</div>
                    
                    <div className="flex flex-col gap-6">
-                      {/* Team 1 */}
                       <div className="flex items-center justify-between px-2">
                         <div className="flex-1 space-y-1">
                           {m.team1.map(p => {
@@ -420,7 +400,6 @@ const App: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* VS Divider */}
                       <div className="relative flex items-center justify-center py-2">
                         <div className="absolute inset-0 flex items-center" aria-hidden="true">
                           <div className="w-full border-t-2 border-slate-100 dark:border-slate-700"></div>
@@ -430,9 +409,8 @@ const App: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Team 2 */}
                       <div className="flex items-center justify-between px-2">
-                        <div className="flex-1_space-y-1">
+                        <div className="flex-1 space-y-1">
                           {m.team2.map(p => {
                             const info = getPlayerLabel(p);
                             return <div key={p.id} className="font-black text-2xl text-slate-800 dark:text-slate-100">{info.name} <span className="text-xs text-slate-400">#{info.number}</span></div>
@@ -485,28 +463,6 @@ const App: React.FC = () => {
               <button onClick={() => { if(confirm('Reset session?')) { setRounds([]); setView('setup'); } }} className="text-xs font-black text-slate-400 hover:text-rose-600 transition-colors uppercase tracking-widest"> Reset </button>
             </div>
 
-            {/* AI Coaching Insights */}
-            <Card className="bg-indigo-600 text-white border-none shadow-2xl relative overflow-hidden p-6">
-              <div className="absolute -right-4 -top-4 opacity-10"> <Sparkles size={140} /> </div>
-              <div className="relative z-10 space-y-6">
-                 <div className="flex justify-between items-center">
-                    <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2"> <Sparkles size={20}/> Coach Insights </h3>
-                    {!insights && (
-                      <button onClick={handleGetInsights} className="text-xs font-black bg-white/20 px-4 py-2 rounded-full uppercase">Generate</button>
-                    )}
-                 </div>
-                 {isGeneratingInsights ? (
-                   <div className="flex items-center gap-3 animate-pulse">
-                     <div className="w-6 h-6 rounded-full border-4 border-white/20 border-t-white animate-spin"></div>
-                     <span className="text-sm font-bold">Analyzing session flow...</span>
-                   </div>
-                 ) : insights ? (
-                   <p className="text-indigo-50 font-medium italic text-base leading-relaxed">"{insights}"</p>
-                 ) : <p className="text-indigo-100 text-sm opacity-60 font-bold">Complete rounds to get an AI session review.</p>}
-              </div>
-            </Card>
-
-            {/* Mobile Rank List */}
             <div className="space-y-4">
               {leaderboard.map((p) => (
                 <Card key={p.id} className="p-4 flex items-center gap-5 hover:border-lime-300 transition-colors">
@@ -532,7 +488,12 @@ const App: React.FC = () => {
             <button 
               onClick={() => {
                 const text = leaderboard.map(p => `${p.displayRank}. ${p.name}: ${p.wins}-${p.losses} (+${p.diff})`).join('\n');
-                navigator.share ? navigator.share({ title: 'PickleFlow Stats', text }) : alert('Summary copied to clipboard!');
+                if (navigator.share) {
+                  navigator.share({ title: 'PickleFlow Stats', text });
+                } else {
+                  navigator.clipboard.writeText(text);
+                  alert('Summary copied to clipboard!');
+                }
               }}
               className="w-full py-5 border-4 border-slate-200 dark:border-slate-800 text-slate-500 rounded-3xl font-black uppercase text-sm flex items-center justify-center gap-2 hover:bg-slate-100 transition-colors"
             >
