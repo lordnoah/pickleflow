@@ -1,19 +1,5 @@
-
 {
-  "name": "PickleFlow Pro",
-  "short_name": "PickleFlow",
-  "start_url": "./index.html",
-  "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
-  "description": "Professional Pickleball Rotation Manager",
-  "icons": [
-    {
-      "src": "https://cdn-icons-png.flaticon.com/512/2166/2166810.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ]
+  "name": "PickleFlow - Pro Rotation Manager",
+  "description": "A high-performance pickleball rotation and tournament manager featuring smart scheduling, real-time scoring, and localized player tracking.",
+  "requestFramePermissions": []
 }
