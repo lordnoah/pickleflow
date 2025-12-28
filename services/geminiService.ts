@@ -1,4 +1,2 @@
-// AI Features removed as requested.
-export const getSessionInsights = async () => {
-  return "Local stats only mode enabled.";
-};
+// This service is currently unused as the app is 100% standalone.
+export {};
