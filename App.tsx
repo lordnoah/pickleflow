@@ -10,40 +10,67 @@ import {
   CheckCircle2,
   Clock,
   ChevronLeft,
+  ChevronDown,
   AlertCircle,
   Timer,
   Pause,
   PlayCircle,
   Edit2,
-  Share2
+  Share2,
+  RefreshCw,
+  LayoutGrid,
+  Calendar,
+  Search,
+  Filter
 } from 'lucide-react';
 import { Card } from './components/Card';
 import { PickleFlowLogo, DEFAULT_PLAYERS, ROUND_OPTIONS, DURATION_OPTIONS, COURT_OPTIONS } from './constants';
 import { Player, Match, Round, PlayerStats, View } from './types';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<View>('setup');
+  const [view, setView] = useState<View>(() => {
+    const saved = localStorage.getItem('pickleflow_view');
+    return (saved as View) || 'setup';
+  });
+  
   const [players, setPlayers] = useState<Player[]>(() => {
     const saved = localStorage.getItem('pickleflow_players');
     return saved ? JSON.parse(saved) : DEFAULT_PLAYERS;
   });
+  
+  const [rounds, setRounds] = useState<Round[]>(() => {
+    const saved = localStorage.getItem('pickleflow_rounds');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [currentRoundIndex, setCurrentRoundIndex] = useState<number>(() => {
+    const saved = localStorage.getItem('pickleflow_round_index');
+    return saved ? parseInt(saved) : 0;
+  });
+
   const [newPlayerName, setNewPlayerName] = useState('');
   const [error, setError] = useState('');
-  const [rounds, setRounds] = useState<Round[]>([]);
-  const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
   const [courtCount, setCourtCount] = useState(3);
   const [numRounds, setNumRounds] = useState(8);
+  const [playerFilter, setPlayerFilter] = useState<number | null>(null);
 
   // Timer States
   const [timerActive, setTimerActive] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(900); // 15 mins default (900s)
+  const [timeLeft, setTimeLeft] = useState(900); 
   const [selectedDuration, setSelectedDuration] = useState(15);
   const [targetTime, setTargetTime] = useState<number | null>(null);
   const timerRef = useRef<number | null>(null);
 
+  // Persistence
   useEffect(() => {
     localStorage.setItem('pickleflow_players', JSON.stringify(players));
   }, [players]);
+
+  useEffect(() => {
+    localStorage.setItem('pickleflow_view', view);
+    localStorage.setItem('pickleflow_rounds', JSON.stringify(rounds));
+    localStorage.setItem('pickleflow_round_index', currentRoundIndex.toString());
+  }, [view, rounds, currentRoundIndex]);
 
   useEffect(() => {
     if (timerActive && targetTime) {
@@ -63,12 +90,11 @@ const App: React.FC = () => {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [timerActive, targetTime]);
 
-  // Update timeLeft when selectedDuration changes in setup
   useEffect(() => {
-    if (view === 'setup') {
+    if (view === 'setup' && rounds.length === 0) {
       setTimeLeft(selectedDuration * 60);
     }
-  }, [selectedDuration, view]);
+  }, [selectedDuration, view, rounds.length]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -100,6 +126,15 @@ const App: React.FC = () => {
 
   const handleEditPlayerName = (id: number, newName: string) => {
     setPlayers(players.map(p => p.id === id ? { ...p, name: newName } : p));
+  };
+
+  const resetTournament = () => {
+    if (confirm('This will wipe all scores and rounds. Continue?')) {
+      setRounds([]);
+      setCurrentRoundIndex(0);
+      setView('setup');
+      setPlayerFilter(null);
+    }
   };
 
   const generateSchedule = () => {
@@ -163,6 +198,7 @@ const App: React.FC = () => {
     setTimerActive(false);
     setTargetTime(null);
     setView('play');
+    setPlayerFilter(null);
     window.scrollTo(0, 0);
   };
 
@@ -245,38 +281,44 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-8 pt-4">
-      {/* Top Header */}
       <header className="sticky top-0 z-[60] bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 sm:py-5 mb-6">
         <div className="max-w-2xl mx-auto flex flex-col gap-4">
           <div className="flex justify-between items-center">
             <PickleFlowLogo />
-            {rounds.length > 0 && view === 'play' && (
-              <div className="bg-slate-100 dark:bg-slate-800 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest text-slate-500">
+            {rounds.length > 0 && view !== 'setup' && (
+              <button 
+                onClick={() => setView('play')}
+                className="bg-lime-600 hover:bg-lime-700 text-white px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+              >
+                <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
                 Round {currentRoundIndex + 1}/{rounds.length}
-              </div>
+              </button>
             )}
           </div>
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl shadow-inner">
-            {[
-              { id: 'setup', icon: Settings, label: 'Setup' },
-              { id: 'play', icon: PlayCircle, label: 'Play' },
-              { id: 'leaderboard', icon: Trophy, label: 'Stats' }
-            ].map(item => (
-              <button
-                key={item.id}
-                onClick={() => setView(item.id as View)}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black transition-all ${view === item.id ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm scale-[1.02]' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
-              >
-                <item.icon size={20} />
-                <span className="uppercase tracking-wider">{item.label}</span>
-              </button>
-            ))}
-          </div>
+          
+          {rounds.length > 0 && (
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl shadow-inner overflow-hidden">
+              {[
+                { id: 'setup', icon: Settings, label: 'Setup' },
+                { id: 'play', icon: PlayCircle, label: 'Play' },
+                { id: 'summary', icon: LayoutGrid, label: 'Schedule' },
+                { id: 'leaderboard', icon: Trophy, label: 'Stats' }
+              ].map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => setView(item.id as View)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-3 px-1 rounded-xl text-[10px] sm:text-xs font-black transition-all ${view === item.id ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm scale-[1.02]' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                >
+                  <item.icon size={16} className="shrink-0" />
+                  <span className="uppercase tracking-tight whitespace-nowrap overflow-visible">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="max-w-2xl mx-auto px-4 pb-4">
+      <main className="max-w-4xl mx-auto px-4 pb-4">
         {error && (
           <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[70] w-[90%] max-w-sm animate-in fade-in slide-in-from-top-4">
             <div className="bg-rose-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 font-bold text-base border-2 border-white/20">
@@ -286,11 +328,26 @@ const App: React.FC = () => {
         )}
 
         {view === 'setup' && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+          <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4">
+            {rounds.length > 0 && (
+              <Card className="bg-lime-50 border-lime-200 p-4 flex items-center justify-between">
+                <div>
+                  <h3 className="font-black text-lime-700">Active Session</h3>
+                  <p className="text-sm text-lime-600">Round {currentRoundIndex + 1} is in progress.</p>
+                </div>
+                <button onClick={() => setView('play')} className="bg-lime-600 text-white px-4 py-2 rounded-xl font-black text-sm uppercase">Resume</button>
+              </Card>
+            )}
+
             <Card className="p-6">
-              <h2 className="text-lg font-black text-lime-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <Users size={24} /> Squad ({players.length})
-              </h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-black text-lime-600 uppercase tracking-widest flex items-center gap-2">
+                  <Users size={24} /> Squad ({players.length})
+                </h2>
+                <button onClick={resetTournament} className="text-xs font-black text-slate-400 hover:text-rose-600 flex items-center gap-1 uppercase">
+                  <RefreshCw size={14} /> Reset All
+                </button>
+              </div>
               <div className="flex gap-2 mb-6">
                 <input 
                   type="text" 
@@ -307,7 +364,7 @@ const App: React.FC = () => {
                   <Plus size={28} /> 
                 </button>
               </div>
-              <div className="grid grid-cols-1 gap-3 max-h-[45vh] overflow-y-auto pr-1 custom-scrollbar">
+              <div className="grid grid-cols-1 gap-3 max-h-[35vh] overflow-y-auto pr-1 custom-scrollbar">
                 {players.map((p, idx) => (
                   <div key={p.id} className="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-3 pl-4 rounded-xl border border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-4">
@@ -325,66 +382,67 @@ const App: React.FC = () => {
               </div>
             </Card>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Card className="p-4">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Rounds</h3>
-                <select value={numRounds} onChange={(e) => setNumRounds(parseInt(e.target.value))} className="w-full bg-transparent font-black text-xl text-lime-600 outline-none">
-                  {ROUND_OPTIONS.map(o => <option key={o} value={o}>{o} Rounds</option>)}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-tight mb-1">Rounds</h3>
+                <select value={numRounds} onChange={(e) => setNumRounds(parseInt(e.target.value))} className="w-full bg-transparent font-black text-base text-lime-600 outline-none">
+                  {ROUND_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
-              </Card>
-              <Card className="p-4">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Duration</h3>
-                <select value={selectedDuration} onChange={(e) => setSelectedDuration(parseInt(e.target.value))} className="w-full bg-transparent font-black text-xl text-lime-600 outline-none">
-                  {DURATION_OPTIONS.map(o => <option key={o} value={o}>{o} Mins</option>)}
+              </div>
+              <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-tight mb-1">Time</h3>
+                <select value={selectedDuration} onChange={(e) => setSelectedDuration(parseInt(e.target.value))} className="w-full bg-transparent font-black text-base text-lime-600 outline-none">
+                  {DURATION_OPTIONS.map(o => <option key={o} value={o}>{o}m</option>)}
                 </select>
-              </Card>
-              <Card className="p-4">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Courts</h3>
-                <select value={courtCount} onChange={(e) => setCourtCount(parseInt(e.target.value))} className="w-full bg-transparent font-black text-xl text-lime-600 outline-none">
-                  {COURT_OPTIONS.map(o => <option key={o} value={o}>{o} Courts</option>)}
+              </div>
+              <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-tight mb-1">Courts</h3>
+                <select value={courtCount} onChange={(e) => setCourtCount(parseInt(e.target.value))} className="w-full bg-transparent font-black text-base text-lime-600 outline-none">
+                  {COURT_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
-              </Card>
+              </div>
             </div>
 
-            <button onClick={generateSchedule} className="w-full py-6 rounded-2xl bg-lime-600 text-white font-black text-2xl shadow-xl active:scale-95 transition-all uppercase tracking-widest">Start Rotation</button>
+            <button onClick={generateSchedule} className="w-full py-5 rounded-2xl bg-lime-600 text-white font-black text-lg sm:text-2xl shadow-xl active:scale-95 transition-all uppercase tracking-widest">
+              {rounds.length > 0 ? "New Round Robin" : "Start Round Robin"}
+            </button>
           </div>
         )}
 
         {view === 'play' && rounds.length > 0 && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-            {/* Timer Strip */}
+          <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4">
             <div className={`sticky top-32 z-50 flex items-center justify-between p-4 rounded-2xl shadow-xl transition-all border-l-8 ${timeLeft === 0 ? 'bg-rose-50 border-rose-500' : timerActive ? 'bg-white dark:bg-slate-800 border-lime-500' : 'bg-slate-200 border-slate-400'}`}>
               <div className="flex items-center gap-4">
-                <span className={`text-5xl font-black tabular-nums tracking-tighter ${timeLeft < 60 && timerActive ? 'text-rose-600 animate-pulse' : ''}`}>{formatTime(timeLeft)}</span>
-                <span className="text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Match<br/>Clock</span>
+                <span className={`text-4xl sm:text-5xl font-black tabular-nums tracking-tighter ${timeLeft < 60 && timerActive ? 'text-rose-600 animate-pulse' : ''}`}>{formatTime(timeLeft)}</span>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Match<br/>Clock</span>
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-2 sm:gap-3">
                 {!timerActive ? (
-                  <button onClick={startTimer} className="bg-lime-600 text-white p-4 rounded-2xl shadow-md active:scale-90"><Play size={28} fill="currentColor" /></button>
+                  <button onClick={startTimer} className="bg-lime-600 text-white p-3 sm:p-4 rounded-2xl shadow-md active:scale-90"><Play size={24} fill="currentColor" /></button>
                 ) : (
-                  <button onClick={pauseTimer} className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-100 p-4 rounded-2xl active:scale-90"><Pause size={28} fill="currentColor" /></button>
+                  <button onClick={pauseTimer} className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-100 p-3 sm:p-4 rounded-2xl active:scale-90"><Pause size={24} fill="currentColor" /></button>
                 )}
-                <button onClick={resetTimer} className="bg-slate-100 dark:bg-slate-700 text-slate-400 p-4 rounded-2xl active:scale-90"><RotateCcw size={28} /></button>
+                <button onClick={resetTimer} className="bg-slate-100 dark:bg-slate-700 text-slate-400 p-3 sm:p-4 rounded-2xl active:scale-90"><RotateCcw size={24} /></button>
               </div>
             </div>
 
             <div className="flex justify-between items-center py-2">
-              <button onClick={() => currentRoundIndex > 0 && setCurrentRoundIndex(currentRoundIndex - 1)} disabled={currentRoundIndex === 0} className="p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm disabled:opacity-30 border-2 border-slate-100 dark:border-slate-700"><ChevronLeft size={28}/></button>
-              <h2 className="font-black text-2xl italic uppercase tracking-tighter">Round {currentRoundIndex + 1}</h2>
-              <button onClick={nextRound} className="p-4 bg-slate-900 text-white rounded-2xl shadow-lg flex items-center gap-2 font-black text-sm uppercase px-6">{currentRoundIndex < rounds.length - 1 ? "Next" : "Finish"}</button>
+              <button onClick={() => currentRoundIndex > 0 && setCurrentRoundIndex(currentRoundIndex - 1)} disabled={currentRoundIndex === 0} className="p-3 sm:p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm disabled:opacity-30 border-2 border-slate-100 dark:border-slate-700"><ChevronLeft size={24}/></button>
+              <h2 className="font-black text-xl sm:text-2xl italic uppercase tracking-tighter">Round {currentRoundIndex + 1}</h2>
+              <button onClick={nextRound} className="p-3 sm:p-4 bg-slate-900 text-white rounded-2xl shadow-lg flex items-center gap-2 font-black text-xs sm:text-sm uppercase px-5 sm:px-6">{currentRoundIndex < rounds.length - 1 ? "Next" : "Finish"}</button>
             </div>
 
             <div className="grid gap-6">
               {rounds[currentRoundIndex].matches.map((m) => (
                 <Card key={m.id} className={`relative pt-14 pb-6 transition-all ${m.completed ? 'opacity-40 scale-[0.97]' : 'border-t-8 border-t-lime-500 shadow-xl'}`}>
-                   <div className={`absolute top-0 right-0 px-6 py-2 rounded-bl-3xl text-xs font-black text-white uppercase tracking-widest shadow-sm ${m.completed ? 'bg-slate-400' : 'bg-lime-500'}`}>Court {m.court}</div>
+                   <div className={`absolute top-0 right-0 px-6 py-2 rounded-bl-3xl text-[10px] font-black text-white uppercase tracking-widest shadow-sm ${m.completed ? 'bg-slate-400' : 'bg-lime-500'}`}>Court {m.court}</div>
                    
                    <div className="flex flex-col gap-6">
                       <div className="flex items-center justify-between px-2">
                         <div className="flex-1 space-y-1">
                           {m.team1.map(p => {
                             const info = getPlayerLabel(p);
-                            return <div key={p.id} className="font-black text-2xl text-slate-800 dark:text-slate-100">{info.name} <span className="text-xs text-slate-400">#{info.number}</span></div>
+                            return <div key={p.id} className="font-black text-xl sm:text-2xl text-slate-800 dark:text-slate-100">{info.name} <span className="text-[10px] text-slate-400">#{info.number}</span></div>
                           })}
                         </div>
                         <div className="flex items-center">
@@ -395,7 +453,7 @@ const App: React.FC = () => {
                              onFocus={(e) => e.target.select()}
                              onChange={(e) => updateScore(m.id, 1, e.target.value)}
                              disabled={m.completed}
-                             className="w-20 h-20 text-center text-5xl font-black bg-slate-50 dark:bg-slate-900 rounded-2xl border-4 border-transparent focus:border-lime-500 focus:ring-4 focus:ring-lime-500/20 outline-none text-lime-600 transition-all" 
+                             className="w-16 h-16 sm:w-20 sm:h-20 text-center text-4xl sm:text-5xl font-black bg-slate-50 dark:bg-slate-900 rounded-2xl border-4 border-transparent focus:border-lime-500 outline-none text-lime-600 transition-all" 
                            />
                         </div>
                       </div>
@@ -404,7 +462,7 @@ const App: React.FC = () => {
                         <div className="absolute inset-0 flex items-center" aria-hidden="true">
                           <div className="w-full border-t-2 border-slate-100 dark:border-slate-700"></div>
                         </div>
-                        <div className="relative bg-white dark:bg-slate-800 px-6 py-1 text-xs font-black italic uppercase text-slate-400 tracking-[0.3em] border-2 border-slate-100 dark:border-slate-700 rounded-full shadow-sm">
+                        <div className="relative bg-white dark:bg-slate-800 px-4 py-1 text-[10px] font-black italic uppercase text-slate-400 tracking-[0.3em] border-2 border-slate-100 dark:border-slate-700 rounded-full shadow-sm">
                           vs
                         </div>
                       </div>
@@ -413,7 +471,7 @@ const App: React.FC = () => {
                         <div className="flex-1 space-y-1">
                           {m.team2.map(p => {
                             const info = getPlayerLabel(p);
-                            return <div key={p.id} className="font-black text-2xl text-slate-800 dark:text-slate-100">{info.name} <span className="text-xs text-slate-400">#{info.number}</span></div>
+                            return <div key={p.id} className="font-black text-xl sm:text-2xl text-slate-800 dark:text-slate-100">{info.name} <span className="text-[10px] text-slate-400">#{info.number}</span></div>
                           })}
                         </div>
                         <div className="flex items-center">
@@ -424,17 +482,17 @@ const App: React.FC = () => {
                              onFocus={(e) => e.target.select()}
                              onChange={(e) => updateScore(m.id, 2, e.target.value)}
                              disabled={m.completed}
-                             className="w-20 h-20 text-center text-5xl font-black bg-slate-50 dark:bg-slate-900 rounded-2xl border-4 border-transparent focus:border-lime-500 focus:ring-4 focus:ring-lime-500/20 outline-none text-lime-600 transition-all" 
+                             className="w-16 h-16 sm:w-20 sm:h-20 text-center text-4xl sm:text-5xl font-black bg-slate-50 dark:bg-slate-900 rounded-2xl border-4 border-transparent focus:border-lime-500 outline-none text-lime-600 transition-all" 
                            />
                         </div>
                       </div>
                    </div>
 
                    {!m.completed ? (
-                     <button onClick={() => finalizeMatch(m.id)} className="w-full mt-8 py-5 rounded-2xl bg-slate-900 text-white font-black text-sm uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-transform">Confirm Score</button>
+                     <button onClick={() => finalizeMatch(m.id)} className="w-full mt-8 py-5 rounded-2xl bg-slate-900 text-white font-black text-xs sm:text-sm uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-transform">Confirm Score</button>
                    ) : (
                      <div className="mt-8 flex gap-3">
-                       <div className="flex-1 flex items-center justify-center gap-2 py-4 bg-lime-50 dark:bg-lime-900/20 text-lime-600 rounded-2xl font-black text-sm uppercase border border-lime-100"> <CheckCircle2 size={20}/> Recorded</div>
+                       <div className="flex-1 flex items-center justify-center gap-2 py-4 bg-lime-50 dark:bg-lime-900/20 text-lime-600 rounded-2xl font-black text-xs uppercase border border-lime-100"> <CheckCircle2 size={20}/> Recorded</div>
                        <button onClick={() => editMatch(m.id)} className="p-4 border border-slate-200 dark:border-slate-700 rounded-2xl text-slate-400"> <Edit2 size={20}/></button>
                      </div>
                    )}
@@ -443,12 +501,12 @@ const App: React.FC = () => {
             </div>
 
             {rounds[currentRoundIndex].sittingOut.length > 0 && (
-              <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-900 p-6 border-l-8 border-l-amber-500">
-                <h3 className="text-xs font-black text-amber-600 uppercase tracking-widest mb-3 flex items-center gap-2"> <Clock size={20} /> Resting Squad </h3>
-                <div className="flex flex-wrap gap-3">
+              <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-900 p-5 sm:p-6 border-l-8 border-l-amber-500">
+                <h3 className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-3 flex items-center gap-2"> <Clock size={16} /> Resting Squad </h3>
+                <div className="flex flex-wrap gap-2 sm:gap-3">
                   {rounds[currentRoundIndex].sittingOut.map(p => {
                     const info = getPlayerLabel(p);
-                    return <span key={p.id} className="bg-white dark:bg-slate-800 px-4 py-2.5 rounded-xl text-sm font-black shadow-sm text-slate-600 dark:text-slate-300 border border-amber-50">{info.name}</span>
+                    return <span key={p.id} className="bg-white dark:bg-slate-800 px-3 py-2 rounded-xl text-xs font-black shadow-sm text-slate-600 dark:text-slate-300 border border-amber-50">{info.name}</span>
                   })}
                 </div>
               </Card>
@@ -456,30 +514,148 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {view === 'summary' && rounds.length > 0 && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 pb-20">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center px-2">
+                <h2 className="text-2xl sm:text-3xl font-black italic uppercase tracking-tighter flex items-center gap-2">
+                  <Calendar className="text-lime-600" /> Full Schedule
+                </h2>
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  {rounds.length} Rounds
+                </div>
+              </div>
+
+              {/* Filter Section */}
+              <div className="px-2">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Filter size={18} className="text-lime-600" />
+                    <span className="text-xs font-black uppercase text-slate-400 tracking-widest">Player Filter:</span>
+                  </div>
+                  <div className="relative flex-1">
+                    <select 
+                      value={playerFilter === null ? '' : playerFilter} 
+                      onChange={(e) => setPlayerFilter(e.target.value === '' ? null : parseInt(e.target.value))}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 pr-10 font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-lime-500 outline-none appearance-none cursor-pointer"
+                    >
+                      <option value="">All Players (Full Schedule)</option>
+                      {players.map(p => (
+                        <option key={p.id} value={p.id}>{p.name} (#{players.findIndex(pl => pl.id === p.id) + 1})</option>
+                      ))}
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                      <ChevronDown size={20} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-8 sm:gap-12">
+              {rounds.map((round, rIdx) => {
+                const filteredMatches = playerFilter 
+                  ? round.matches.filter(m => [...m.team1, ...m.team2].some(p => p.id === playerFilter))
+                  : round.matches;
+
+                // If filtering and this round has no matches for the player, check if they are resting
+                const isResting = playerFilter && round.sittingOut.some(p => p.id === playerFilter);
+                
+                if (playerFilter && filteredMatches.length === 0 && !isResting) return null;
+
+                return (
+                  <div key={`summary-r-${rIdx}`} className="space-y-4 animate-in fade-in">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800"></div>
+                      <h3 className="text-sm sm:text-xl font-black uppercase tracking-widest text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full whitespace-nowrap">Round {round.number}</h3>
+                      <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800"></div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {filteredMatches.map((match) => (
+                        <div key={match.id} className={`bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-5 border-2 transition-all shadow-sm relative overflow-hidden ${playerFilter ? 'border-lime-500 ring-4 ring-lime-500/10' : 'border-slate-200 dark:border-slate-700'}`}>
+                          <div className="flex justify-between items-start mb-3 border-b border-slate-50 dark:border-slate-700 pb-2">
+                            <span className="text-[10px] font-black text-lime-600 uppercase tracking-widest bg-lime-50 dark:bg-lime-900/30 px-2 py-0.5 rounded-md">Court {match.court}</span>
+                            <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Match Details</span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex-1 flex flex-col items-center gap-0 min-w-0">
+                              {match.team1.map(p => (
+                                <div key={p.id} className={`font-black text-2xl sm:text-4xl truncate w-full text-center leading-none mb-1 transition-colors ${playerFilter === p.id ? 'text-lime-600 scale-105' : 'text-slate-700 dark:text-slate-200'}`}>
+                                  {p.name} <span className={`text-[11px] sm:text-[14px] font-black ${playerFilter === p.id ? 'text-lime-400' : 'text-slate-400'}`}>({getPlayerLabel(p).number})</span>
+                                </div>
+                              ))}
+                            </div>
+                            
+                            <div className="flex flex-col items-center shrink-0">
+                              <div className="text-[10px] font-black text-slate-300 uppercase italic">vs</div>
+                            </div>
+                            
+                            <div className="flex-1 flex flex-col items-center gap-0 min-w-0">
+                              {match.team2.map(p => (
+                                <div key={p.id} className={`font-black text-2xl sm:text-4xl truncate w-full text-center leading-none mb-1 transition-colors ${playerFilter === p.id ? 'text-lime-600 scale-105' : 'text-slate-700 dark:text-slate-200'}`}>
+                                  {p.name} <span className={`text-[11px] sm:text-[14px] font-black ${playerFilter === p.id ? 'text-lime-400' : 'text-slate-400'}`}>({getPlayerLabel(p).number})</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Show resting status if filtering or if there's someone actually resting */}
+                    {(isResting || (!playerFilter && round.sittingOut.length > 0)) && (
+                      <div className={`rounded-xl p-2.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 border-2 transition-all ${isResting ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-400 shadow-md scale-[1.01]' : 'bg-amber-50/50 dark:bg-amber-900/10 border-amber-100/50'}`}>
+                        <span className={`text-[10px] font-black uppercase tracking-tighter mr-1 flex items-center gap-1 shrink-0 ${isResting ? 'text-amber-700' : 'text-amber-600'}`}>
+                          <Clock size={12} /> {isResting ? 'Resting This Round:' : 'Resting:'}
+                        </span>
+                        {round.sittingOut.map((p, pIdx) => (
+                          <span key={p.id} className={`text-[12px] font-black ${isResting && playerFilter === p.id ? 'text-amber-700 text-lg' : 'text-slate-500 dark:text-slate-400'}`}>
+                            {p.name} <span className="text-[9px] text-slate-300 font-black">({getPlayerLabel(p).number})</span>
+                            {pIdx < round.sittingOut.length - 1 && ","}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            
+            {playerFilter && rounds.every(r => !r.matches.some(m => [...m.team1, ...m.team2].some(p => p.id === playerFilter)) && !r.sittingOut.some(p => p.id === playerFilter)) && (
+              <div className="text-center py-20 animate-in fade-in">
+                <Search size={48} className="mx-auto text-slate-200 mb-4" />
+                <h3 className="font-black text-slate-400 uppercase tracking-widest">No Matches Found</h3>
+                <p className="text-slate-300 text-sm mt-1">Try another player or reset the filter.</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {view === 'leaderboard' && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+          <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4">
              <div className="flex justify-between items-center px-1">
-              <h2 className="text-3xl font-black italic uppercase tracking-tighter flex items-center gap-2"><Trophy className="text-amber-500" /> Standings</h2>
-              <button onClick={() => { if(confirm('Reset session?')) { setRounds([]); setView('setup'); } }} className="text-xs font-black text-slate-400 hover:text-rose-600 transition-colors uppercase tracking-widest"> Reset </button>
+              <h2 className="text-2xl sm:text-3xl font-black italic uppercase tracking-tighter flex items-center gap-2"><Trophy className="text-amber-500" /> Standings</h2>
+              <button onClick={resetTournament} className="text-[10px] font-black text-slate-400 hover:text-rose-600 transition-colors uppercase tracking-widest"> Reset </button>
             </div>
 
             <div className="space-y-4">
               {leaderboard.map((p) => (
-                <Card key={p.id} className="p-4 flex items-center gap-5 hover:border-lime-300 transition-colors">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl shadow-sm ${p.displayRank === 1 ? 'bg-amber-100 text-amber-600 ring-4 ring-amber-400/50 scale-105' : p.displayRank === 2 ? 'bg-slate-100 text-slate-400 border-2 border-slate-200' : p.displayRank === 3 ? 'bg-orange-50 text-orange-600 border-2 border-orange-200' : 'bg-slate-50 text-slate-300'}`}>
+                <Card key={p.id} className="p-4 flex items-center gap-4 sm:gap-5 hover:border-lime-300 transition-colors">
+                  <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center font-black text-xl sm:text-2xl shadow-sm ${p.displayRank === 1 ? 'bg-amber-100 text-amber-600 ring-4 ring-amber-400/30' : p.displayRank === 2 ? 'bg-slate-100 text-slate-400 border-2 border-slate-200' : p.displayRank === 3 ? 'bg-orange-50 text-orange-600 border-2 border-orange-200' : 'bg-slate-50 text-slate-300'}`}>
                     {p.displayRank}
                   </div>
-                  <div className="flex-1">
-                    <div className="font-black text-2xl text-slate-800 dark:text-slate-100 leading-tight">{p.name}</div>
-                    <div className="flex items-center gap-4 text-xs font-black uppercase tracking-widest text-slate-400 mt-1">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-black text-lg sm:text-2xl text-slate-800 dark:text-slate-100 leading-tight truncate">{p.name}</div>
+                    <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">
                        <span>{p.wins}W - {p.losses}L</span>
-                       <span className="text-slate-200">|</span>
-                       <span className={p.diff > 0 ? 'text-lime-600' : p.diff < 0 ? 'text-rose-600' : ''}>Net: {p.diff > 0 ? `+${p.diff}` : p.diff}</span>
+                       <span className={p.diff > 0 ? 'text-lime-600' : p.diff < 0 ? 'text-rose-600' : ''}>{p.diff > 0 ? `+${p.diff}` : p.diff}</span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-[10px] font-black text-slate-300 uppercase leading-none mb-1">Total Pts</div>
-                    <div className="font-black text-3xl text-lime-600">{p.pointsFor}</div>
+                  <div className="text-right shrink-0">
+                    <div className="text-[9px] font-black text-slate-300 uppercase leading-none mb-1">Pts</div>
+                    <div className="font-black text-2xl sm:text-3xl text-lime-600">{p.pointsFor}</div>
                   </div>
                 </Card>
               ))}
@@ -489,13 +665,13 @@ const App: React.FC = () => {
               onClick={() => {
                 const text = leaderboard.map(p => `${p.displayRank}. ${p.name}: ${p.wins}-${p.losses} (+${p.diff})`).join('\n');
                 if (navigator.share) {
-                  navigator.share({ title: 'PickleFlow Stats', text });
+                  navigator.share({ title: 'PickleFlow Stats', text: text });
                 } else {
                   navigator.clipboard.writeText(text);
-                  alert('Summary copied to clipboard!');
+                  alert('Stats copied to clipboard!');
                 }
               }}
-              className="w-full py-5 border-4 border-slate-200 dark:border-slate-800 text-slate-500 rounded-3xl font-black uppercase text-sm flex items-center justify-center gap-2 hover:bg-slate-100 transition-colors"
+              className="w-full py-5 border-4 border-slate-200 dark:border-slate-800 text-slate-500 rounded-3xl font-black uppercase text-xs sm:text-sm flex items-center justify-center gap-2 hover:bg-slate-100 transition-colors"
             >
               <Share2 size={20} /> Share Results
             </button>
@@ -503,7 +679,6 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Global Finish Modal */}
       {timeLeft === 0 && view === 'play' && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/95 backdrop-blur-md animate-in fade-in">
           <Card className="max-w-xs w-full text-center space-y-6 border-4 border-lime-500 shadow-2xl p-8">
