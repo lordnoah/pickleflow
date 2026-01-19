@@ -93,10 +93,20 @@ const App: React.FC = () => {
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
   // --- VALIDATION HELPERS ---
-  const nameParts = newPlayerName.trim().split(/\s+/);
-  const isValidName = nameParts.length >= 2 && nameParts[0].length > 1 && nameParts[nameParts.length - 1].length > 0;
-  const formattedPreview = isValidName ? `${nameParts[0]} ${nameParts[nameParts.length - 1].charAt(0).toUpperCase()}.` : '';
-  const isDuplicate = players.some(p => p.name.toLowerCase() === formattedPreview.toLowerCase());
+  const nameParts = newPlayerName.trim().split(/\s+/).filter(p => p.length > 0);
+  const isValidName = nameParts.length >= 2 && nameParts[0].length > 1;
+  
+  // AUTO-CAPITALIZATION LOGIC: Normalizes input to "First L."
+  const formattedPreview = useMemo(() => {
+    if (!isValidName) return '';
+    const first = nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1).toLowerCase();
+    const lastInitial = nameParts[nameParts.length - 1].charAt(0).toUpperCase();
+    return `${first} ${lastInitial}.`;
+  }, [nameParts, isValidName]);
+
+  const isDuplicate = useMemo(() => {
+    return players.some(p => p.name.toLowerCase() === formattedPreview.toLowerCase());
+  }, [players, formattedPreview]);
 
   const handleAddPlayer = () => {
     if (!isValidName || isDuplicate) return;
@@ -309,9 +319,9 @@ const App: React.FC = () => {
                 {rounds[currentRoundIndex].sittingOut.length > 0 && (
                   <div className="bg-orange-50 dark:bg-orange-950/20 border-2 border-dashed border-orange-200 dark:border-orange-900/50 p-6 rounded-3xl">
                     <div className="flex items-center gap-2 mb-4 text-orange-600 dark:text-orange-400"><Coffee size={20} /><h3 className="font-black uppercase italic tracking-tighter">Sitting Out</h3></div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 overflow-visible">
                       {rounds[currentRoundIndex].sittingOut.map(p => (
-                        <span key={p.id} className="bg-white dark:bg-slate-900 px-4 py-2 rounded-xl border border-orange-100 font-black text-sm uppercase text-orange-700 dark:text-orange-300 shadow-sm">{p.name}</span>
+                        <span key={p.id} className="bg-white dark:bg-slate-900 px-4 py-2 rounded-xl border border-orange-100 font-black text-sm uppercase text-orange-700 dark:text-orange-300 shadow-sm whitespace-nowrap">{p.name}</span>
                       ))}
                     </div>
                   </div>
