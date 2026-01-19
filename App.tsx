@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Users, Trophy, Settings, Plus, Trash2, CheckCircle2, ChevronLeft, 
   PlayCircle, Edit2, LayoutGrid, Medal, RefreshCw, Play, Pause, 
-  RotateCcw, Info, X, AlertCircle, CheckCircle, Coffee, Upload, Download, ExternalLink, Scale, Hash
+  RotateCcw, Info, X, AlertCircle, CheckCircle, Coffee, Upload, Download, ExternalLink, Scale, Hash, Bell, Timer
 } from 'lucide-react';
 import { Card } from './components/Card';
 import { PickleFlowLogo, DEFAULT_PLAYERS, ROUND_OPTIONS, DURATION_OPTIONS, COURT_OPTIONS } from './constants';
@@ -25,11 +25,28 @@ const App: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState(selectedDuration * 60);
   const [targetTime, setTargetTime] = useState<number | null>(null);
   const [showInfo, setShowInfo] = useState(false);
+  const [showTimeUp, setShowTimeUp] = useState(false);
   const [sortKey, setSortKey] = useState<'avgPoints' | 'pointsFor'>('avgPoints');
   const [newPlayerName, setNewPlayerName] = useState('');
   
   const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // --- AUDIO LOGIC ---
+  const playAlert = () => {
+    const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = context.createOscillator();
+    const gain = context.createGain();
+    osc.connect(gain);
+    gain.connect(context.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, context.currentTime); // A5 note
+    gain.gain.setValueAtTime(0, context.currentTime);
+    gain.gain.linearRampToValueAtTime(0.5, context.currentTime + 0.1);
+    gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 1);
+    osc.start();
+    osc.stop(context.currentTime + 1);
+  };
 
   // --- AUTOMATIC ACTIVE ROUND DETECTION ---
   const trueActiveRoundIndex = useMemo(() => {
@@ -55,7 +72,11 @@ const App: React.FC = () => {
       timerRef.current = window.setInterval(() => {
         const remaining = Math.max(0, Math.round((targetTime - Date.now()) / 1000));
         setTimeLeft(remaining);
-        if (remaining === 0) setTimerActive(false);
+        if (remaining === 0) {
+          setTimerActive(false);
+          setShowTimeUp(true);
+          playAlert();
+        }
       }, 500);
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
@@ -68,33 +89,7 @@ const App: React.FC = () => {
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
-  // --- DATA MANAGEMENT ---
-  const exportData = () => {
-    const data: TournamentSession = { players, rounds, currentRoundIndex, courtCount, numRounds, selectedDuration };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `pickleflow-session-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-  };
-
-  const importData = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data: TournamentSession = JSON.parse(event.target?.result as string);
-        setPlayers(data.players); setRounds(data.rounds); setCurrentRoundIndex(data.currentRoundIndex);
-        setCourtCount(data.courtCount); setNumRounds(data.numRounds); setSelectedDuration(data.selectedDuration);
-        setView('play');
-      } catch (err) { alert('Invalid session file.'); }
-    };
-    reader.readAsText(file);
-  };
-
-  // --- PLAYER NAME VALIDATION LOGIC ---
+  // --- PLAYER NAME VALIDATION ---
   const nameParts = newPlayerName.trim().split(/\s+/);
   const isBasicValid = nameParts.length >= 2 && nameParts[0].length > 0 && nameParts[nameParts.length - 1].length > 0;
   
@@ -248,52 +243,71 @@ const App: React.FC = () => {
         {/* --- PLAY --- */}
         {view === 'play' && rounds[currentRoundIndex] && (
           <div key={`round-${currentRoundIndex}`} className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-             <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border shadow-md flex items-center justify-between">
-                <button onClick={() => setCurrentRoundIndex(Math.max(0, currentRoundIndex - 1))} disabled={currentRoundIndex === 0} className="p-2 text-slate-400 disabled:opacity-20"><ChevronLeft size={32}/></button>
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-2">
-                    <p className="text-2xl font-black uppercase italic">Round {currentRoundIndex + 1}</p>
-                    {currentRoundIndex === trueActiveRoundIndex && <span className="bg-lime-500 text-white text-[8px] px-2 py-0.5 rounded-full font-black animate-pulse">ACTIVE</span>}
+             {/* PROMINENT TIMER SECTION */}
+             <div className="bg-white dark:bg-slate-900 rounded-[2rem] border-4 border-slate-100 dark:border-slate-800 shadow-2xl p-6 overflow-hidden relative">
+                <div className="flex flex-col items-center">
+                  <div className="flex items-center gap-3 mb-2">
+                    <button onClick={() => setCurrentRoundIndex(Math.max(0, currentRoundIndex - 1))} disabled={currentRoundIndex === 0} className="p-3 text-slate-300 hover:text-lime-600 disabled:opacity-0 transition-all"><ChevronLeft size={32}/></button>
+                    <div className="text-center">
+                      <h2 className="text-sm font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Round</h2>
+                      <p className="text-5xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white leading-none">{currentRoundIndex + 1}</p>
+                    </div>
+                    <button onClick={() => currentRoundIndex < rounds.length - 1 ? setCurrentRoundIndex(currentRoundIndex + 1) : setView('leaderboard')} className="p-3 text-slate-300 hover:text-lime-600 transition-all rotate-180"><ChevronLeft size={32}/></button>
                   </div>
-                  <div className="flex items-center justify-center gap-3 mt-1">
-                    <button onClick={() => setTimeLeft(selectedDuration * 60)} className="text-slate-400"><RotateCcw size={14}/></button>
-                    <span className="font-mono font-black text-lime-600 tracking-widest text-lg">{formatTime(timeLeft)}</span>
-                    <button onClick={toggleTimer} className="text-slate-400">{timerActive ? <Pause size={14} fill="currentColor"/> : <Play size={14} fill="currentColor"/>}</button>
+
+                  <div className="w-full max-w-xs bg-slate-50 dark:bg-slate-950/50 rounded-3xl p-6 border-2 border-slate-100 dark:border-slate-800 mt-2">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className={`text-7xl font-mono font-black tracking-tighter transition-colors ${timerActive ? 'text-lime-600' : 'text-slate-400'}`}>
+                        {formatTime(timeLeft)}
+                      </div>
+                      <div className="flex items-center gap-4 w-full">
+                        <button onClick={() => { setTimeLeft(selectedDuration * 60); setTimerActive(false); }} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-500 hover:text-rose-500 transition-all active:scale-95 flex justify-center"><RotateCcw size={28}/></button>
+                        <button onClick={toggleTimer} className={`flex-[2] py-4 rounded-2xl flex justify-center transition-all active:scale-95 shadow-lg ${timerActive ? 'bg-rose-500 text-white shadow-rose-500/20' : 'bg-lime-600 text-white shadow-lime-500/20'}`}>
+                          {timerActive ? <Pause size={32} fill="currentColor"/> : <Play size={32} fill="currentColor" className="translate-x-0.5"/>}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <button onClick={() => currentRoundIndex < rounds.length - 1 ? setCurrentRoundIndex(currentRoundIndex + 1) : setView('leaderboard')} className="p-2 text-slate-400 rotate-180"><ChevronLeft size={32}/></button>
+                {currentRoundIndex === trueActiveRoundIndex && (
+                  <div className="absolute top-4 right-4 bg-lime-500 text-white text-[10px] px-3 py-1 rounded-full font-black animate-pulse uppercase tracking-widest shadow-lg shadow-lime-500/30">Active</div>
+                )}
              </div>
 
              <div className="space-y-6">
                 {rounds[currentRoundIndex].matches.map((match) => (
                   <Card key={match.id} className={`${match.completed ? 'opacity-60 grayscale-[0.5]' : 'border-l-8 border-lime-500 shadow-lg'}`}>
                     <div className="p-4 space-y-4">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Court {match.court}</span>
+                        {match.completed && <CheckCircle2 size={16} className="text-lime-500" />}
+                      </div>
                       <div className="space-y-4">
-                        <div className="flex justify-between items-center bg-lime-50/50 dark:bg-lime-900/10 p-3 rounded-xl border border-lime-100 dark:border-lime-900/30">
-                          <div className="flex-1 font-black uppercase text-sm leading-tight text-lime-800 dark:text-lime-400">{match.team1[0]?.name}<br/>{match.team1[1]?.name}</div>
-                          <input type="tel" value={match.score1} onChange={(e) => updateScore(match.id, 1, e.target.value)} onFocus={(e) => e.target.select()} className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl text-center text-3xl font-black border-2 border-lime-200 focus:border-lime-500 outline-none" />
+                        <div className="flex justify-between items-center bg-lime-50/50 dark:bg-lime-900/10 p-4 rounded-2xl border border-lime-100 dark:border-lime-900/30">
+                          <div className="flex-1 font-black uppercase text-base leading-tight text-lime-800 dark:text-lime-400">{match.team1[0]?.name}<br/>{match.team1[1]?.name}</div>
+                          <input type="tel" value={match.score1} onChange={(e) => updateScore(match.id, 1, e.target.value)} onFocus={(e) => e.target.select()} className="w-20 h-20 bg-white dark:bg-slate-800 rounded-2xl text-center text-4xl font-black border-4 border-lime-200 focus:border-lime-500 outline-none transition-all shadow-inner" />
                         </div>
-                        <div className="relative py-1 flex items-center"><div className="w-full border-t-2 border-dashed border-slate-200 dark:border-slate-800" /><span className="absolute left-1/2 -translate-x-1/2 bg-white dark:bg-slate-900 px-4 text-[10px] font-black text-slate-400 italic uppercase border-2 border-slate-100 dark:border-slate-800 rounded-full">VS</span></div>
-                        <div className="flex justify-between items-center bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100 dark:border-blue-900/30">
-                          <div className="flex-1 font-black uppercase text-sm leading-tight text-blue-800 dark:text-blue-400">{match.team2[0]?.name}<br/>{match.team2[1]?.name}</div>
-                          <input type="tel" value={match.score2} onChange={(e) => updateScore(match.id, 2, e.target.value)} onFocus={(e) => e.target.select()} className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl text-center text-3xl font-black border-2 border-blue-200 focus:border-blue-500 outline-none" />
+                        <div className="relative py-1 flex items-center"><div className="w-full border-t-2 border-dashed border-slate-200 dark:border-slate-800" /><span className="absolute left-1/2 -translate-x-1/2 bg-white dark:bg-slate-950 px-6 text-xs font-black text-slate-400 italic uppercase border-2 border-slate-100 dark:border-slate-800 rounded-full">VS</span></div>
+                        <div className="flex justify-between items-center bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+                          <div className="flex-1 font-black uppercase text-base leading-tight text-blue-800 dark:text-blue-400">{match.team2[0]?.name}<br/>{match.team2[1]?.name}</div>
+                          <input type="tel" value={match.score2} onChange={(e) => updateScore(match.id, 2, e.target.value)} onFocus={(e) => e.target.select()} className="w-20 h-20 bg-white dark:bg-slate-800 rounded-2xl text-center text-4xl font-black border-4 border-blue-200 focus:border-blue-500 outline-none transition-all shadow-inner" />
                         </div>
                       </div>
-                      <button onClick={() => setRounds(prev => prev.map(r => ({...r, matches: r.matches.map(m => m.id === match.id ? {...m, completed: !m.completed} : m)})))} className={`w-full py-4 rounded-xl font-black text-xs uppercase flex items-center justify-center gap-2 transition-all ${match.completed ? 'bg-slate-100 text-slate-500' : 'bg-lime-600 text-white shadow-lg shadow-lime-500/20'}`}>
-                        {match.completed ? <><Edit2 size={18}/> Edit Scores</> : <><CheckCircle2 size={18}/> Add Final Score</>}
+                      <button onClick={() => setRounds(prev => prev.map(r => ({...r, matches: r.matches.map(m => m.id === match.id ? {...m, completed: !m.completed} : m)})))} className={`w-full py-5 rounded-2xl font-black text-sm uppercase flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${match.completed ? 'bg-slate-100 text-slate-500' : 'bg-lime-600 text-white shadow-xl shadow-lime-500/20'}`}>
+                        {match.completed ? <><Edit2 size={20}/> Edit Scores</> : <><CheckCircle2 size={20}/> Add Final Score</>}
                       </button>
                     </div>
                   </Card>
                 ))}
 
                 {rounds[currentRoundIndex].sittingOut.length > 0 && (
-                  <div className="bg-orange-50 dark:bg-orange-950/20 border-2 border-dashed border-orange-200 dark:border-orange-900/50 p-6 rounded-3xl">
+                  <div className="bg-orange-50 dark:bg-orange-950/20 border-2 border-dashed border-orange-200 dark:border-orange-900/50 p-6 rounded-[2rem]">
                     <div className="flex items-center gap-2 mb-4 text-orange-600 dark:text-orange-400">
-                      <Coffee size={20} /><h3 className="font-black uppercase italic tracking-tighter">Sitting Out This Round</h3>
+                      <Coffee size={24} /><h3 className="text-xl font-black uppercase italic tracking-tighter">Sitting Out</h3>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {rounds[currentRoundIndex].sittingOut.map(p => (
-                        <span key={p.id} className="bg-white dark:bg-slate-900 px-4 py-2 rounded-xl border border-orange-100 dark:border-orange-900/30 font-black text-sm uppercase text-orange-700 dark:text-orange-300 shadow-sm">{p.name}</span>
+                        <span key={p.id} className="bg-white dark:bg-slate-900 px-5 py-3 rounded-2xl border border-orange-100 dark:border-orange-900/30 font-black text-sm uppercase text-orange-700 dark:text-orange-300 shadow-sm">{p.name}</span>
                       ))}
                     </div>
                   </div>
@@ -308,60 +322,25 @@ const App: React.FC = () => {
             {rounds.map((round, rIdx) => {
               const isActive = rIdx === trueActiveRoundIndex;
               return (
-                <Card 
-                  key={rIdx} 
-                  className={`p-4 transition-all duration-300 ${
-                    isActive 
-                      ? 'ring-4 ring-lime-500 ring-offset-4 scale-[1.02] shadow-2xl bg-white dark:bg-slate-900 z-10' 
-                      : 'opacity-60 grayscale-[0.2]'
-                  }`}
-                >
+                <Card key={rIdx} className={`p-4 transition-all duration-300 ${isActive ? 'ring-4 ring-lime-500 ring-offset-4 scale-[1.02] shadow-2xl bg-white dark:bg-slate-900 z-10' : 'opacity-60 grayscale-[0.2]'}`}>
                   <div className="flex justify-between items-start mb-4">
-                    <button 
-                      onClick={() => {
-                        setCurrentRoundIndex(rIdx);
-                        setView('play');
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      className={`flex flex-col items-start group transition-transform active:scale-95`}
-                    >
-                      <h3 className={`font-black uppercase italic flex items-center gap-1 transition-colors ${isActive ? 'text-lime-600 text-lg' : 'text-slate-400 text-xs group-hover:text-lime-500'}`}>
-                        Round {round.number}
-                        <ExternalLink size={isActive ? 14 : 10} className="opacity-40 group-hover:opacity-100" />
-                      </h3>
-                      <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest group-hover:text-lime-400">
-                        {isActive ? 'Awaiting Scores' : 'Jump to View'}
-                      </span>
+                    <button onClick={() => { setCurrentRoundIndex(rIdx); setView('play'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="flex flex-col items-start group">
+                      <h3 className={`font-black uppercase italic flex items-center gap-1 ${isActive ? 'text-lime-600 text-lg' : 'text-slate-400 text-xs'}`}>Round {round.number} <ExternalLink size={isActive ? 14 : 10} /></h3>
+                      <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest">Jump to View</span>
                     </button>
                     {isActive && <span className="bg-lime-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse uppercase tracking-widest">ACTIVE</span>}
                   </div>
-                  
                   <div className="space-y-4">
                     {round.matches.map((m, mIdx) => (
-                      <div key={mIdx} className={`p-3 rounded-xl border transition-colors ${isActive ? 'border-lime-100 bg-lime-50/30' : 'border-slate-100 bg-slate-50/50 dark:bg-slate-800/50 dark:border-slate-700'}`}>
-                        <div className="flex justify-between text-[8px] font-bold text-slate-400 mb-2 uppercase tracking-tighter">
-                          <span>Court {m.court}</span>
-                          {m.completed && <span className="text-lime-600 font-black">Final: {m.score1}-{m.score2}</span>}
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[11px] font-black uppercase leading-none">{m.team1.map(p => p.name).join(' & ')}</p>
-                          <div className="flex items-center gap-2 py-1">
-                            <div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-700" />
-                            <span className="text-[7px] font-black text-slate-400 uppercase">VS</span>
-                            <div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-700" />
-                          </div>
-                          <p className="text-[11px] font-black uppercase leading-none">{m.team2.map(p => p.name).join(' & ')}</p>
-                        </div>
+                      <div key={mIdx} className={`p-3 rounded-xl border ${isActive ? 'border-lime-100 bg-lime-50/30' : 'border-slate-100 bg-slate-50/50 dark:bg-slate-800/50'}`}>
+                        <div className="flex justify-between text-[8px] font-bold text-slate-400 mb-2 uppercase"><span>Court {m.court}</span>{m.completed && <span className="text-lime-600 font-black">Final: {m.score1}-{m.score2}</span>}</div>
+                        <div className="space-y-1"><p className="text-[11px] font-black uppercase leading-none">{m.team1.map(p => p.name).join(' & ')}</p><div className="flex items-center gap-2 py-1"><div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-700" /><span className="text-[7px] font-black text-slate-400 uppercase">VS</span><div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-700" /></div><p className="text-[11px] font-black uppercase leading-none">{m.team2.map(p => p.name).join(' & ')}</p></div>
                       </div>
                     ))}
                     {round.sittingOut.length > 0 && (
                       <div className="mt-2 pt-3 border-t-2 border-dotted border-orange-200 dark:border-orange-900/40">
-                        <div className="flex items-center gap-1.5 mb-1 text-orange-500">
-                          <Coffee size={10} /><p className="text-[8px] font-black uppercase tracking-wider text-orange-400">Resting:</p>
-                        </div>
-                        <p className="text-[10px] font-bold text-orange-700/80 dark:text-orange-400/80 leading-tight">
-                          {round.sittingOut.map(p => p.name).join(', ')}
-                        </p>
+                        <div className="flex items-center gap-1.5 mb-1 text-orange-500"><Coffee size={10} /><p className="text-[8px] font-black uppercase tracking-wider text-orange-400">Resting:</p></div>
+                        <p className="text-[10px] font-bold text-orange-700/80 dark:text-orange-400/80 leading-tight">{round.sittingOut.map(p => p.name).join(', ')}</p>
                       </div>
                     )}
                   </div>
@@ -393,68 +372,41 @@ const App: React.FC = () => {
           </div>
         )}
         
-        {/* --- DETAILED INFO CARD RESTORED --- */}
+        {/* --- TIME'S UP ALERT --- */}
+        {showTimeUp && (
+          <div className="fixed inset-0 z-[200] bg-rose-600/95 backdrop-blur-xl flex items-center justify-center p-4">
+             <div className="text-center space-y-8 animate-in zoom-in-95">
+                <div className="relative">
+                  <Bell size={120} className="text-white mx-auto animate-bounce" />
+                  <Timer size={40} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-rose-600" />
+                </div>
+                <div>
+                  <h2 className="text-6xl font-black italic uppercase text-white tracking-tighter leading-none mb-4">Time's Up!</h2>
+                  <p className="text-rose-100 font-black uppercase tracking-[0.3em]">End of Round {currentRoundIndex + 1}</p>
+                </div>
+                <button onClick={() => setShowTimeUp(false)} className="px-12 py-6 bg-white text-rose-600 rounded-[2rem] font-black text-2xl uppercase italic tracking-tighter shadow-2xl active:scale-95 transition-all">Clear Alert</button>
+             </div>
+          </div>
+        )}
+
+        {/* --- SCORING INFO MODAL --- */}
         {showInfo && (
           <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
             <Card className="max-w-xl w-full p-8 relative animate-in zoom-in-95 duration-200 my-auto">
               <button onClick={() => setShowInfo(false)} className="absolute top-4 right-4 text-slate-400 hover:text-rose-500 transition-colors"><X size={24}/></button>
-              
               <div className="space-y-6">
-                <div>
-                   <h3 className="text-3xl font-black uppercase italic text-lime-600 tracking-tighter flex items-center gap-2">
-                     <Trophy size={28}/> Tournament Scoring
-                   </h3>
-                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">PickleFlow Round-Robin Official Logic</p>
-                </div>
-
+                <div><h3 className="text-3xl font-black uppercase italic text-lime-600 tracking-tighter flex items-center gap-2"><Trophy size={28}/> Tournament Scoring</h3><p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">PickleFlow Round-Robin Official Logic</p></div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs">
-                      <Hash size={16}/> Primary: PPG
-                    </div>
-                    <p className="text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">
-                      Players are ranked by <strong>Average Points Per Game (PPG)</strong>. This is your total points earned divided by matches played.
-                    </p>
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs">
-                      <Scale size={16}/> Tie-Breaking
-                    </div>
-                    <p className="text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">
-                      If PPG is exactly tied, the player with the most <strong>Total Wins</strong> takes the higher rank.
-                    </p>
-                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800"><div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs"><Hash size={16}/> Primary: PPG</div><p className="text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">Players ranked by <strong>Avg Pts Per Game</strong>. Earned points ÷ matches played.</p></div>
+                  <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800"><div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs"><Scale size={16}/> Tie-Breaking</div><p className="text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">If PPG is tied, the player with the most <strong>Total Wins</strong> ranks higher.</p></div>
                 </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b pb-2">Why PPG instead of Total Points?</h4>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed italic">
-                    In a group with odd numbers or limited courts, some players will inevitably sit out more often than others. <strong>PPG</strong> ensures that a player is not penalized for resting, as their ranking is based on their performance <em>while on the court</em>.
-                  </p>
-                </div>
-
-                <div className="bg-lime-600/5 dark:bg-lime-500/5 p-5 rounded-2xl border border-lime-200/50 dark:border-lime-500/20">
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-600 mb-3">Fairness Guarantee</h4>
-                  <ul className="text-xs font-bold text-slate-600 dark:text-slate-400 space-y-3">
-                    <li className="flex items-start gap-2">
-                      <CheckCircle size={14} className="text-lime-600 mt-0.5 shrink-0"/> 
-                      <strong>Rotating Partners:</strong> The algorithm ensures you play with the maximum variety of partners possible.
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle size={14} className="text-lime-600 mt-0.5 shrink-0"/> 
-                      <strong>Rest Equity:</strong> Players who have sat out the most rounds are prioritized to play in the next round.
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle size={14} className="text-lime-600 mt-0.5 shrink-0"/> 
-                      <strong>Point Tracking:</strong> Points against are tracked to visualize defensive performance but do not impact rank.
-                    </li>
-                  </ul>
-                </div>
+                <div className="space-y-4"><h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b pb-2">Why PPG instead of Total Points?</h4><p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed italic">PPG ensures no penalty for resting. Your ranking is based on performance <em>while on the court</em>.</p></div>
+                <div className="bg-lime-600/5 p-5 rounded-2xl border border-lime-200/50"><h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-600 mb-3">Fairness Guarantee</h4><ul className="text-xs font-bold text-slate-600 dark:text-slate-400 space-y-3">
+                  <li className="flex items-start gap-2"><CheckCircle size={14} className="text-lime-600 mt-0.5 shrink-0"/> <strong>Rotating Partners:</strong> Maximize variety of partners.</li>
+                  <li className="flex items-start gap-2"><CheckCircle size={14} className="text-lime-600 mt-0.5 shrink-0"/> <strong>Rest Equity:</strong> Sitters are prioritized to play next.</li>
+                </ul></div>
               </div>
-
-              <button onClick={() => setShowInfo(false)} className="w-full mt-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all">
-                Return to Standings
-              </button>
+              <button onClick={() => setShowInfo(false)} className="w-full mt-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all">Return to Standings</button>
             </Card>
           </div>
         )}
