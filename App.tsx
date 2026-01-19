@@ -191,16 +191,43 @@ const App: React.FC = () => {
 
   const leaderboard = useMemo<PlayerStats[]>(() => {
     const stats: Record<number, any> = {};
-    players.forEach(p => stats[p.id] = { id: p.id, name: p.name, wins: 0, losses: 0, gamesPlayed: 0, pointsFor: 0, pointsAgainst: 0 });
+    players.forEach(p => stats[p.id] = { id: p.id, name: p.name, wins: 0, losses: 0, ties: 0, gamesPlayed: 0, pointsFor: 0, pointsAgainst: 0 });
+    
     rounds.forEach(r => r.matches.forEach(m => {
       if (!m.completed) return;
       const s1 = parseInt(m.score1) || 0, s2 = parseInt(m.score2) || 0;
-      m.team1.forEach(p => { if(stats[p.id]) { stats[p.id].gamesPlayed++; stats[p.id].pointsFor += s1; stats[p.id].pointsAgainst += s2; if(s1 > s2) stats[p.id].wins++; else if(s1 < s2) stats[p.id].losses++; }});
-      m.team2.forEach(p => { if(stats[p.id]) { stats[p.id].gamesPlayed++; stats[p.id].pointsFor += s2; stats[p.id].pointsAgainst += s1; if(s2 > s1) stats[p.id].wins++; else if(s2 < s1) stats[p.id].losses++; }});
+      
+      m.team1.forEach(p => { 
+        if(stats[p.id]) { 
+          stats[p.id].gamesPlayed++; 
+          stats[p.id].pointsFor += s1; 
+          stats[p.id].pointsAgainst += s2; 
+          if(s1 > s2) stats[p.id].wins++; 
+          else if(s1 < s2) stats[p.id].losses++;
+          else stats[p.id].ties++;
+        }
+      });
+      
+      m.team2.forEach(p => { 
+        if(stats[p.id]) { 
+          stats[p.id].gamesPlayed++; 
+          stats[p.id].pointsFor += s2; 
+          stats[p.id].pointsAgainst += s1; 
+          if(s2 > s1) stats[p.id].wins++; 
+          else if(s2 < s1) stats[p.id].losses++;
+          else stats[p.id].ties++;
+        }
+      });
     }));
-    return Object.values(stats).filter((s:any) => s.gamesPlayed > 0).map((s: any) => ({
-      ...s, avgPoints: s.pointsFor / s.gamesPlayed
-    })).sort((a, b) => b[sortKey] - a[sortKey] || b.wins - a.wins).map((p, i) => ({ ...p, displayRank: i + 1 })) as PlayerStats[];
+
+    return Object.values(stats)
+      .filter((s:any) => s.gamesPlayed > 0)
+      .map((s: any) => ({
+        ...s, 
+        avgPoints: s.pointsFor / s.gamesPlayed
+      }))
+      .sort((a, b) => b[sortKey] - a[sortKey] || b.wins - a.wins)
+      .map((p, i) => ({ ...p, displayRank: i + 1 })) as PlayerStats[];
   }, [rounds, players, sortKey]);
 
   return (
@@ -379,7 +406,7 @@ const App: React.FC = () => {
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl shrink-0 ${idx < 3 ? 'bg-lime-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>{stat.displayRank}</div>
                   <div className="flex-1 min-w-0">
                     <h4 className="font-black text-lg uppercase truncate flex items-center gap-2">{stat.name} {idx === 0 && <Medal size={20} className="text-amber-400" />}</h4>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">W-L: {stat.wins}-{stat.losses} • {stat.gamesPlayed} Games</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">W-L-T: {stat.wins}-{stat.losses}-{stat.ties} • {stat.gamesPlayed} Games</p>
                   </div>
                   <div className="flex gap-4 md:gap-8 items-center shrink-0 pr-2">
                     <div className={`text-right ${sortKey === 'pointsFor' ? 'opacity-100' : 'opacity-50'}`}><div className="text-lg font-black">{stat.pointsFor}</div><p className="text-[8px] font-black text-slate-400 uppercase">Total</p></div>
@@ -411,7 +438,7 @@ const App: React.FC = () => {
                 </div>
                 <div className="p-4 bg-lime-50 dark:bg-lime-900/10 rounded-xl border border-lime-100 dark:border-lime-900/30">
                   <p className="text-[10px] font-black text-lime-700 dark:text-lime-400 uppercase leading-normal tracking-wide italic">
-                    Note: Wins/Losses are tracked for your personal record, but points are the currency of PickleFlow standings. Every point matters!
+                    Note: Wins/Losses/Ties are tracked for your personal record, but points are the currency of PickleFlow standings. Every point matters!
                   </p>
                 </div>
               </div>
