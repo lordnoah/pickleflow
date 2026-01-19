@@ -236,7 +236,7 @@ const App: React.FC = () => {
               <button onClick={exportData} className="p-2 text-slate-400 hover:text-lime-600"><Download size={18} /></button>
               <button onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-400 hover:text-lime-600"><Upload size={18} /></button>
               <input type="file" ref={fileInputRef} onChange={importData} className="hidden" accept=".json" />
-              <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="p-2 text-slate-400 hover:text-rose-500"><RefreshCw size={18} /></button>
+              <button onClick={() => { if(confirm("Reset everything?")) { localStorage.clear(); window.location.reload(); }}} className="p-2 text-slate-400 hover:text-rose-500"><RefreshCw size={18} /></button>
             </div>
           </div>
           {rounds.length > 0 && (
@@ -340,6 +340,9 @@ const App: React.FC = () => {
                       <p className="text-[10px] font-bold truncate">{m.team2.map(p => p.name).join(' & ')}</p>
                     </div>
                   ))}
+                  {round.sittingOut && round.sittingOut.length > 0 && (
+                    <div className="pt-2 border-t mt-2"><p className="text-[9px] font-black text-slate-400 uppercase">Sitting Out</p><p className="text-[10px] font-bold text-slate-500 truncate">{round.sittingOut.map(p => p.name).join(', ')}</p></div>
+                  )}
                 </div>
               </Card>
             ))}
@@ -349,3 +352,27 @@ const App: React.FC = () => {
         {view === 'leaderboard' && (
           <div className="max-w-3xl mx-auto space-y-6">
             <h2 className="text-3xl font-black italic uppercase tracking-tighter">Standings</h2>
+            {leaderboard.length === 0 ? (
+              <Card className="p-12 text-center text-slate-500 font-bold uppercase tracking-tight"><Activity size={48} className="mx-auto mb-4 opacity-20"/>No scores yet.</Card>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 pb-20">
+                {leaderboard.map((stat, idx) => (
+                  <div key={stat.id} className={`flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border-2 ${idx < 4 ? 'border-lime-500' : 'border-slate-100'}`}>
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-black ${idx < 4 ? 'bg-lime-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{stat.displayRank}</div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-black text-lg uppercase truncate flex items-center gap-2">{stat.name} {idx < 4 && <Medal size={16} className="text-amber-400" />}</h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{stat.wins}W - {stat.losses}L • {stat.pointsFor} Pts</p>
+                    </div>
+                    <div className="text-right font-black text-lime-600">{(stat as any).avgPoints.toFixed(1)}<p className="text-[8px] text-slate-400 uppercase">PPG</p></div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+};
+
+export default App;
