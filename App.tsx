@@ -52,7 +52,6 @@ const App: React.FC = () => {
     } catch (e) {}
   };
 
-  // --- AUTOMATIC ACTIVE ROUND DETECTION ---
   const trueActiveRoundIndex = useMemo(() => {
     if (rounds.length === 0) return 0;
     const firstIncompleteIdx = rounds.findIndex(r => r.matches.some(m => !m.completed));
@@ -70,7 +69,7 @@ const App: React.FC = () => {
     localStorage.setItem('pf_duration', selectedDuration.toString());
   }, [view, players, rounds, currentRoundIndex, courtCount, numRounds, selectedDuration]);
 
-  // --- TIMER LOGIC ---
+  // --- TIMER EFFECT ---
   useEffect(() => {
     if (timerActive && targetTime) {
       timerRef.current = window.setInterval(() => {
@@ -164,7 +163,7 @@ const App: React.FC = () => {
   }, [rounds, players, sortKey]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-12 font-sans selection:bg-lime-200 text-slate-900 dark:text-slate-100">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-12 font-sans text-slate-900 dark:text-slate-100 overflow-x-hidden">
       <header className="sticky top-0 z-[60] bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b px-4 py-3 shadow-sm">
         <div className="max-w-2xl mx-auto flex flex-col gap-4">
           <div className="flex justify-between items-center">
@@ -190,7 +189,6 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 mt-6">
-        {/* SETUP VIEW (UNCHANGED) */}
         {view === 'setup' && (
           <div className="max-w-2xl mx-auto space-y-6">
             <Card className="p-6">
@@ -217,9 +215,8 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* PLAY VIEW (RESTORED TO PRE-BREAK LOOK) */}
         {view === 'play' && rounds[currentRoundIndex] && (
-          <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="max-w-2xl mx-auto space-y-6 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-300">
              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border shadow-md flex items-center justify-between">
                 <button onClick={() => setCurrentRoundIndex(Math.max(0, currentRoundIndex - 1))} disabled={currentRoundIndex === 0} className="p-2 text-slate-400 disabled:opacity-20"><ChevronLeft size={32}/></button>
                 <div className="text-center">
@@ -260,7 +257,7 @@ const App: React.FC = () => {
 
                 {rounds[currentRoundIndex].sittingOut.length > 0 && (
                   <div className="bg-orange-50 dark:bg-orange-950/20 border-2 border-dashed border-orange-200 dark:border-orange-900/50 p-6 rounded-3xl">
-                    <div className="flex items-center gap-2 mb-4 text-orange-600 dark:text-orange-400"><Coffee size={20} /><h3 className="font-black uppercase italic tracking-tighter">Sitting Out This Round</h3></div>
+                    <div className="flex items-center gap-2 mb-4 text-orange-600 dark:text-orange-400"><Coffee size={20} /><h3 className="font-black uppercase italic tracking-tighter">Sitting Out</h3></div>
                     <div className="flex flex-wrap gap-2">
                       {rounds[currentRoundIndex].sittingOut.map(p => (
                         <span key={p.id} className="bg-white dark:bg-slate-900 px-4 py-2 rounded-xl border border-orange-100 font-black text-sm uppercase text-orange-700 dark:text-orange-300 shadow-sm">{p.name}</span>
@@ -272,27 +269,51 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* TIME'S UP OVERLAY */}
-        {showTimeUp && (
-          <div className="fixed inset-0 z-[200] bg-rose-600/95 backdrop-blur-xl flex items-center justify-center p-4">
-             <div className="text-center space-y-8">
-                <Bell size={100} className="text-white mx-auto animate-bounce" />
-                <h2 className="text-5xl font-black italic uppercase text-white tracking-tighter">Time's Up!</h2>
-                <button onClick={() => setShowTimeUp(false)} className="px-12 py-6 bg-white text-rose-600 rounded-[2rem] font-black text-2xl uppercase italic tracking-tighter shadow-2xl active:scale-95 transition-all">Clear Alert</button>
-             </div>
+        {view === 'summary' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pb-24 animate-in fade-in zoom-in-95">
+            {rounds.map((round, rIdx) => {
+              const isActive = rIdx === trueActiveRoundIndex;
+              return (
+                <Card key={rIdx} className={`p-4 transition-all duration-300 ${isActive ? 'ring-4 ring-lime-500 scale-[1.02] shadow-2xl bg-white z-10' : 'opacity-60 grayscale-[0.2]'}`}>
+                  <div className="flex justify-between items-start mb-4">
+                    <button onClick={() => { setCurrentRoundIndex(rIdx); setView('play'); }} className="flex flex-col items-start group">
+                      <h3 className={`font-black uppercase italic flex items-center gap-1 ${isActive ? 'text-lime-600 text-lg' : 'text-slate-400 text-xs'}`}>Round {round.number} <ExternalLink size={isActive ? 14 : 10} /></h3>
+                    </button>
+                    {isActive && <span className="bg-lime-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse uppercase tracking-widest">ACTIVE</span>}
+                  </div>
+                  <div className="space-y-4">
+                    {round.matches.map((m, mIdx) => (
+                      <div key={mIdx} className={`p-3 rounded-xl border ${isActive ? 'border-lime-100 bg-lime-50/30' : 'border-slate-100'}`}>
+                        <div className="flex justify-between text-[8px] font-bold text-slate-400 mb-2 uppercase"><span>Court {m.court}</span>{m.completed && <span className="text-lime-600 font-black">Final: {m.score1}-{m.score2}</span>}</div>
+                        <div className="space-y-1"><p className="text-[11px] font-black uppercase leading-none">{m.team1.map(p => p.name).join(' & ')}</p><div className="flex items-center gap-2 py-1"><div className="h-[1px] flex-1 bg-slate-200" /><span className="text-[7px] font-black text-slate-400 uppercase">VS</span><div className="h-[1px] flex-1 bg-slate-200" /></div><p className="text-[11px] font-black uppercase leading-none">{m.team2.map(p => p.name).join(' & ')}</p></div>
+                      </div>
+                    ))}
+                    {round.sittingOut.length > 0 && (
+                      <div className="mt-2 pt-3 border-t-2 border-dotted border-orange-200">
+                        <div className="flex items-center gap-1.5 mb-1 text-orange-500"><Coffee size={10} /><p className="text-[8px] font-black uppercase text-orange-400">Resting:</p></div>
+                        <div className="flex flex-wrap gap-1">
+                          {round.sittingOut.map(p => (
+                            <span key={p.id} className="text-[10px] font-bold text-orange-700/80 px-1">{p.name}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
           </div>
         )}
 
-        {/* LEADERBOARD STANDINGS */}
         {view === 'leaderboard' && (
-          <div className="max-w-3xl mx-auto space-y-6">
+          <div className="max-w-3xl mx-auto space-y-6 pb-24">
             <div className="flex justify-between items-end">
               <div><h2 className="text-4xl font-black italic uppercase tracking-tighter">Standings</h2><button onClick={() => setShowInfo(true)} className="mt-2 flex items-center gap-1.5 text-lime-600 font-black text-[10px] uppercase tracking-widest hover:underline"><Info size={14}/> How scoring works</button></div>
               <div className="flex bg-slate-100 p-1 rounded-lg border">
                 <button onClick={() => setSortKey('avgPoints')} className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${sortKey === 'avgPoints' ? 'bg-white text-lime-600' : 'text-slate-400'}`}>Avg PPG</button>
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-3 pb-24">
+            <div className="grid grid-cols-1 gap-3">
               {leaderboard.map((stat, idx) => (
                 <div key={stat.id} className={`flex items-center gap-4 p-4 rounded-2xl bg-white border-2 transition-all ${idx < 4 ? 'border-lime-500 shadow-lg scale-[1.01]' : 'border-slate-100 opacity-90'}`}>
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl ${idx < 4 ? 'bg-lime-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{stat.displayRank}</div>
@@ -304,7 +325,16 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* SCORING INFO MODAL (RESTORED TO ORIGINAL FULL VERSION) */}
+        {showTimeUp && (
+          <div className="fixed inset-0 z-[200] bg-rose-600/95 backdrop-blur-xl flex items-center justify-center p-4">
+             <div className="text-center space-y-8 animate-in zoom-in-95">
+                <Bell size={100} className="text-white mx-auto animate-bounce" />
+                <h2 className="text-5xl font-black italic uppercase text-white tracking-tighter">Time's Up!</h2>
+                <button onClick={() => setShowTimeUp(false)} className="px-12 py-6 bg-white text-rose-600 rounded-[2rem] font-black text-2xl uppercase italic tracking-tighter shadow-2xl active:scale-95 transition-all">Clear Alert</button>
+             </div>
+          </div>
+        )}
+
         {showInfo && (
           <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
             <Card className="max-w-xl w-full p-8 relative animate-in zoom-in-95 duration-200 my-auto">
@@ -346,39 +376,6 @@ const App: React.FC = () => {
               </div>
               <button onClick={() => setShowInfo(false)} className="w-full mt-8 py-4 bg-slate-900 text-white rounded-xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95">Return to Standings</button>
             </Card>
-          </div>
-        )}
-
-        {/* SUMMARY VIEW (RESTORED) */}
-        {view === 'summary' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in-95">
-            {rounds.map((round, rIdx) => {
-              const isActive = rIdx === trueActiveRoundIndex;
-              return (
-                <Card key={rIdx} className={`p-4 transition-all duration-300 ${isActive ? 'ring-4 ring-lime-500 scale-[1.02] shadow-2xl bg-white z-10' : 'opacity-60 grayscale-[0.2]'}`}>
-                  <div className="flex justify-between items-start mb-4">
-                    <button onClick={() => { setCurrentRoundIndex(rIdx); setView('play'); }} className="flex flex-col items-start group">
-                      <h3 className={`font-black uppercase italic flex items-center gap-1 ${isActive ? 'text-lime-600 text-lg' : 'text-slate-400 text-xs'}`}>Round {round.number} <ExternalLink size={isActive ? 14 : 10} /></h3>
-                    </button>
-                    {isActive && <span className="bg-lime-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse uppercase tracking-widest">ACTIVE</span>}
-                  </div>
-                  <div className="space-y-4">
-                    {round.matches.map((m, mIdx) => (
-                      <div key={mIdx} className={`p-3 rounded-xl border ${isActive ? 'border-lime-100 bg-lime-50/30' : 'border-slate-100'}`}>
-                        <div className="flex justify-between text-[8px] font-bold text-slate-400 mb-2 uppercase"><span>Court {m.court}</span>{m.completed && <span className="text-lime-600 font-black">Final: {m.score1}-{m.score2}</span>}</div>
-                        <div className="space-y-1"><p className="text-[11px] font-black uppercase leading-none">{m.team1.map(p => p.name).join(' & ')}</p><div className="flex items-center gap-2 py-1"><div className="h-[1px] flex-1 bg-slate-200" /><span className="text-[7px] font-black text-slate-400 uppercase">VS</span><div className="h-[1px] flex-1 bg-slate-200" /></div><p className="text-[11px] font-black uppercase leading-none">{m.team2.map(p => p.name).join(' & ')}</p></div>
-                      </div>
-                    ))}
-                    {round.sittingOut.length > 0 && (
-                      <div className="mt-2 pt-3 border-t-2 border-dotted border-orange-200">
-                        <div className="flex items-center gap-1.5 mb-1 text-orange-500"><Coffee size={10} /><p className="text-[8px] font-black uppercase text-orange-400">Resting:</p></div>
-                        <p className="text-[10px] font-bold text-orange-700/80 leading-tight">{round.sittingOut.map(p => p.name).join(', ')}</p>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
           </div>
         )}
       </main>
