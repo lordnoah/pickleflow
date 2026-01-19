@@ -195,7 +195,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 mt-6">
-        {/* --- SETUP --- */}
+        {/* --- SETUP VIEW --- */}
         {view === 'setup' && (
           <div className="max-w-2xl mx-auto space-y-6">
             <Card className="p-6">
@@ -230,9 +230,9 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- PLAY --- */}
+        {/* --- PLAY VIEW --- */}
         {view === 'play' && rounds[currentRoundIndex] && (
-          <div className="max-w-2xl mx-auto space-y-6">
+          <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4">
              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border shadow-md flex items-center justify-between">
                 <button onClick={() => setCurrentRoundIndex(Math.max(0, currentRoundIndex - 1))} disabled={currentRoundIndex === 0} className="p-2 text-slate-400 disabled:opacity-20"><ChevronLeft size={32}/></button>
                 <div className="text-center">
@@ -284,20 +284,39 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- SCHEDULE --- */}
+        {/* --- SCHEDULE VIEW --- */}
         {view === 'summary' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in-95">
             {rounds.map((round, rIdx) => {
               const isActive = rIdx === currentRoundIndex;
               return (
-                <Card key={rIdx} className={`p-4 transition-all duration-500 ${isActive ? 'ring-4 ring-lime-500 ring-offset-4 scale-[1.02] shadow-2xl bg-white dark:bg-slate-900 z-10' : 'opacity-60 grayscale-[0.2]'}`}>
+                <Card 
+                  key={rIdx} 
+                  onClick={() => {
+                    setCurrentRoundIndex(rIdx);
+                    setView('play');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className={`p-4 cursor-pointer transition-all duration-300 hover:border-lime-400 active:scale-[0.98] group ${
+                    isActive 
+                      ? 'ring-4 ring-lime-500 ring-offset-4 scale-[1.02] shadow-2xl bg-white dark:bg-slate-900 z-10' 
+                      : 'opacity-60 grayscale-[0.2] hover:opacity-100 hover:grayscale-0'
+                  }`}
+                >
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className={`font-black uppercase italic ${isActive ? 'text-lime-600 text-lg' : 'text-slate-400 text-xs'}`}>Round {round.number}</h3>
-                    {isActive && <span className="bg-lime-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse uppercase">Active</span>}
+                    <h3 className={`font-black uppercase italic transition-colors ${isActive ? 'text-lime-600 text-lg' : 'text-slate-400 text-xs group-hover:text-lime-500'}`}>
+                      Round {round.number}
+                    </h3>
+                    {isActive ? (
+                      <span className="bg-lime-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse uppercase">Active</span>
+                    ) : (
+                      <span className="text-[7px] font-black text-slate-300 uppercase group-hover:text-lime-400">Click to Edit</span>
+                    )}
                   </div>
+                  
                   <div className="space-y-4">
                     {round.matches.map((m, mIdx) => (
-                      <div key={mIdx} className="p-3 rounded-xl border border-slate-100 bg-slate-50/50 dark:bg-slate-800/50 dark:border-slate-700">
+                      <div key={mIdx} className={`p-3 rounded-xl border transition-colors ${isActive ? 'border-lime-100 bg-lime-50/30' : 'border-slate-100 bg-slate-50/50 dark:bg-slate-800/50 dark:border-slate-700'}`}>
                         <div className="flex justify-between text-[8px] font-bold text-slate-400 mb-2 uppercase tracking-tighter">
                           <span>Court {m.court}</span>
                           {m.completed && <span className="text-lime-600 font-black">Final: {m.score1}-{m.score2}</span>}
@@ -306,19 +325,22 @@ const App: React.FC = () => {
                           <p className="text-[11px] font-black uppercase leading-none">{m.team1.map(p => p.name).join(' & ')}</p>
                           <div className="flex items-center gap-2 py-1">
                             <div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-700" />
-                            <span className="text-[7px] font-black text-slate-400 uppercase">Versus</span>
+                            <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">VS</span>
                             <div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-700" />
                           </div>
                           <p className="text-[11px] font-black uppercase leading-none">{m.team2.map(p => p.name).join(' & ')}</p>
                         </div>
                       </div>
                     ))}
+
                     {round.sittingOut.length > 0 && (
                       <div className="mt-2 pt-3 border-t-2 border-dotted border-orange-200 dark:border-orange-900/40">
                         <div className="flex items-center gap-1.5 mb-1 text-orange-500">
-                          <Coffee size={10} /><p className="text-[8px] font-black uppercase tracking-wider">Sitting Out:</p>
+                          <Coffee size={10} /><p className="text-[8px] font-black uppercase tracking-wider text-orange-400">Resting:</p>
                         </div>
-                        <p className="text-[10px] font-bold text-orange-700/80 dark:text-orange-400/80 leading-tight">{round.sittingOut.map(p => p.name).join(', ')}</p>
+                        <p className="text-[10px] font-bold text-orange-700/80 dark:text-orange-400/80 leading-tight">
+                          {round.sittingOut.map(p => p.name).join(', ')}
+                        </p>
                       </div>
                     )}
                   </div>
@@ -328,9 +350,9 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- LEADERBOARD --- */}
+        {/* --- LEADERBOARD VIEW --- */}
         {view === 'leaderboard' && (
-          <div className="max-w-3xl mx-auto space-y-6">
+          <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4">
             <div className="flex justify-between items-end">
               <div><h2 className="text-4xl font-black italic uppercase tracking-tighter">Standings</h2><button onClick={() => setShowInfo(true)} className="mt-2 flex items-center gap-1.5 text-lime-600 font-black text-[10px] uppercase tracking-widest hover:underline"><Info size={14}/> Scoring Info</button></div>
               <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border">
