@@ -92,12 +92,15 @@ const App: React.FC = () => {
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
+  // --- VALIDATION HELPERS ---
+  const nameParts = newPlayerName.trim().split(/\s+/);
+  const isValidName = nameParts.length >= 2 && nameParts[0].length > 1 && nameParts[nameParts.length - 1].length > 0;
+  const formattedPreview = isValidName ? `${nameParts[0]} ${nameParts[nameParts.length - 1].charAt(0).toUpperCase()}.` : '';
+  const isDuplicate = players.some(p => p.name.toLowerCase() === formattedPreview.toLowerCase());
+
   const handleAddPlayer = () => {
-    const nameParts = newPlayerName.trim().split(/\s+/);
-    if (nameParts.length < 2) return;
-    const formatted = `${nameParts[0]} ${nameParts[nameParts.length - 1].charAt(0).toUpperCase()}.`;
-    if (players.some(p => p.name === formatted)) return;
-    setPlayers([...players, { id: Date.now(), name: formatted }]);
+    if (!isValidName || isDuplicate) return;
+    setPlayers([...players, { id: Date.now(), name: formattedPreview }]);
     setNewPlayerName('');
   };
 
@@ -193,10 +196,50 @@ const App: React.FC = () => {
           <div className="max-w-2xl mx-auto space-y-6">
             <Card className="p-6">
               <h2 className="text-xl font-black text-lime-600 uppercase flex items-center gap-3 mb-6"><Users size={24} /> Players ({players.length})</h2>
-              <div className="flex gap-2 mb-6">
-                <input type="text" value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)} placeholder="Full Name (e.g. John Smith)" className="flex-1 bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-4 outline-none font-bold" />
-                <button onClick={handleAddPlayer} className="px-7 rounded-xl bg-lime-600 text-white shadow-lg"><Plus size={32} /></button>
+              
+              <div className="space-y-3 mb-6">
+                <div className="flex gap-2 relative">
+                  <input 
+                    type="text" 
+                    value={newPlayerName} 
+                    onChange={(e) => setNewPlayerName(e.target.value)} 
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddPlayer()}
+                    placeholder="First Last (e.g. John Smith)" 
+                    className={`flex-1 bg-slate-100 dark:bg-slate-700 rounded-xl pl-4 pr-12 py-4 outline-none font-bold border-2 transition-all ${
+                      newPlayerName.trim() === '' ? 'border-transparent' : 
+                      isDuplicate ? 'border-rose-500' :
+                      isValidName ? 'border-lime-500' : 'border-orange-400'
+                    }`} 
+                  />
+                  {newPlayerName && (
+                    <button 
+                      onClick={() => setNewPlayerName('')} 
+                      className="absolute right-[88px] top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                    >
+                      <X size={20} />
+                    </button>
+                  )}
+                  {isValidName && !isDuplicate && (
+                    <button onClick={handleAddPlayer} className="px-7 rounded-xl bg-lime-600 text-white shadow-lg animate-in zoom-in-75 duration-200">
+                      <Plus size={32} />
+                    </button>
+                  )}
+                </div>
+                
+                {/* VALIDATION MESSAGES */}
+                {newPlayerName.trim() !== '' && (
+                  <div className="flex flex-col gap-1 px-1">
+                    {isDuplicate ? (
+                      <p className="text-rose-500 text-[10px] font-black uppercase flex items-center gap-1"><AlertCircle size={12}/> Player already exists</p>
+                    ) : !isValidName ? (
+                      <p className="text-orange-500 text-[10px] font-black uppercase flex items-center gap-1"><AlertCircle size={12}/> Enter first and last name</p>
+                    ) : (
+                      <p className="text-lime-600 text-[10px] font-black uppercase flex items-center gap-1"><CheckCircle size={12}/> Ready to add: {formattedPreview}</p>
+                    )}
+                  </div>
+                )}
               </div>
+
               <div className="grid grid-cols-1 gap-2 max-h-[40vh] overflow-y-auto pr-1">
                 {players.map((p, idx) => (
                   <div key={p.id} className="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border">
@@ -211,7 +254,15 @@ const App: React.FC = () => {
               <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border text-center"><h3 className="text-[10px] font-black text-slate-400 uppercase">Min / Round</h3><select value={selectedDuration} onChange={(e) => {setSelectedDuration(parseInt(e.target.value)); setTimeLeft(parseInt(e.target.value)*60);}} className="w-full bg-transparent font-black text-xl text-lime-600 outline-none">{DURATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
               <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border text-center"><h3 className="text-[10px] font-black text-slate-400 uppercase">Courts</h3><select value={courtCount} onChange={(e) => setCourtCount(parseInt(e.target.value))} className="w-full bg-transparent font-black text-xl text-lime-600 outline-none">{COURT_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
             </div>
-            <button onClick={generateSchedule} className="w-full py-6 bg-lime-600 text-white rounded-2xl font-black text-2xl uppercase italic tracking-tighter shadow-xl">Start Tournament</button>
+            <button 
+              onClick={generateSchedule} 
+              disabled={players.length < 4}
+              className={`w-full py-6 rounded-2xl font-black text-2xl uppercase italic tracking-tighter shadow-xl transition-all ${
+                players.length < 4 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-lime-600 text-white active:scale-[0.98]'
+              }`}
+            >
+              {players.length < 4 ? `Need ${4 - players.length} more players` : 'Start Tournament'}
+            </button>
           </div>
         )}
 
