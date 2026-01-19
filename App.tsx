@@ -307,16 +307,25 @@ const App: React.FC = () => {
               <button onClick={() => setShowInfo(false)} className="absolute top-4 right-4 text-slate-400"><X size={24}/></button>
               <h3 className="text-3xl font-black uppercase italic text-lime-600 flex items-center gap-2 mb-6"><Trophy size={28}/> Scoring Logic</h3>
               <div className="space-y-6">
-                <div className="bg-slate-50 p-4 rounded-2xl border">
-                  <div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs"><Hash size={16}/> PPG (Efficiency)</div>
-                  <p className="text-sm font-medium text-slate-600"><strong>Average Points Per Game</strong> is the fair choice. It ranks players by their actual output per match, ensuring those who sit out aren't penalized.</p>
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                  <div className="flex items-center gap-2 text-lime-600 mb-3 font-black uppercase text-xs tracking-widest"><Hash size={18}/> Primary: Points Per Game (PPG)</div>
+                  <p className="text-sm font-medium leading-relaxed text-slate-600">
+                    To maintain fairness when players sit out, we use <strong>PPG</strong> as the primary metric. It measures efficiency—how many points you generate every time you step on the court. This prevents a player from dropping in rank just because the schedule gave them a rest round.
+                  </p>
                 </div>
-                <div className="bg-slate-50 p-4 rounded-2xl border">
-                  <div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs"><Trophy size={16}/> Total Points (Volume)</div>
-                  <p className="text-sm font-medium text-slate-600"><strong>Total Points For</strong> rewards heavy play. This is a great secondary sort to see who has been the most active and consistent across the whole session.</p>
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                  <div className="flex items-center gap-2 text-blue-600 mb-3 font-black uppercase text-xs tracking-widest"><Scale size={18}/> Secondary: Total Points For</div>
+                  <p className="text-sm font-medium leading-relaxed text-slate-600">
+                    If two players have identical PPG, we look at <strong>Total Points For</strong>. This rewards volume and consistency across the entire session. It’s the ultimate tie-breaker to see who has been the most productive overall.
+                  </p>
+                </div>
+                <div className="p-4 bg-lime-50 rounded-xl border border-lime-100">
+                  <p className="text-[10px] font-black text-lime-700 uppercase leading-normal tracking-wide italic">
+                    Note: Wins/Losses are tracked for your personal record, but points are the currency of PickleFlow standings. Every point matters!
+                  </p>
                 </div>
               </div>
-              <button onClick={() => setShowInfo(false)} className="w-full mt-8 py-4 bg-slate-900 text-white rounded-xl font-black uppercase text-xs tracking-widest">Close</button>
+              <button onClick={() => setShowInfo(false)} className="w-full mt-8 py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg active:scale-95 transition-all">Back to Leaderboard</button>
             </Card>
           </div>
         )}
