@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Users, Trophy, Settings, Plus, Trash2, CheckCircle2, ChevronLeft, 
   PlayCircle, Edit2, LayoutGrid, Medal, Activity, Download, Upload, 
-  RefreshCw, Play, Pause, RotateCcw, Info, X, Check
+  RefreshCw, Play, Pause, RotateCcw, Info, X, Check, AlertCircle
 } from 'lucide-react';
 import { Card } from './components/Card';
 import { PickleFlowLogo, DEFAULT_PLAYERS, ROUND_OPTIONS, DURATION_OPTIONS, COURT_OPTIONS } from './constants';
@@ -61,6 +61,23 @@ const App: React.FC = () => {
   };
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+
+  // --- PLAYER VALIDATION LOGIC ---
+  const handleAddPlayer = () => {
+    const rawName = newPlayerName.trim();
+    if (!rawName) return;
+
+    // Format: "John Smith" -> "John S."
+    const parts = rawName.split(/\s+/);
+    let formattedName = parts[0];
+    if (parts.length > 1) {
+      const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
+      formattedName = `${parts[0]} ${lastInitial}.`;
+    }
+
+    setPlayers([...players, { id: Date.now(), name: formattedName }]);
+    setNewPlayerName('');
+  };
 
   // --- SCHEDULER ---
   const generateSchedule = () => {
@@ -152,32 +169,30 @@ const App: React.FC = () => {
           <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4">
             <Card className="p-6">
               <h2 className="text-xl font-black text-lime-600 uppercase flex items-center gap-3 mb-6"><Users size={24} /> Players ({players.length})</h2>
-              <div className="flex gap-2 mb-6">
-                <input 
-                  type="text" 
-                  value={newPlayerName} 
-                  onChange={(e) => setNewPlayerName(e.target.value)} 
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newPlayerName.trim()) {
-                      setPlayers([...players, { id: Date.now(), name: newPlayerName.trim() }]);
-                      setNewPlayerName('');
-                    }
-                  }} 
-                  placeholder="Enter Name" 
-                  className="flex-1 bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-4 outline-none font-bold" 
-                />
-                <button 
-                  onClick={() => { 
-                    if(newPlayerName.trim()) { 
-                      setPlayers([...players, { id: Date.now(), name: newPlayerName.trim() }]); 
-                      setNewPlayerName(''); 
-                    }
-                  }} 
-                  className="bg-lime-600 text-white px-7 rounded-xl active:scale-95 transition-transform"
-                >
-                  <Plus size={32} />
-                </button>
+              
+              <div className="space-y-2 mb-6">
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={newPlayerName} 
+                    onChange={(e) => setNewPlayerName(e.target.value)} 
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddPlayer()} 
+                    placeholder="Full Name" 
+                    className="flex-1 bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-4 outline-none font-bold focus:ring-2 ring-lime-500/20" 
+                  />
+                  <button 
+                    onClick={handleAddPlayer} 
+                    className="bg-lime-600 text-white px-7 rounded-xl active:scale-95 transition-transform shadow-lg shadow-lime-500/20"
+                  >
+                    <Plus size={32} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 px-1">
+                  <AlertCircle size={12} className="text-slate-400" />
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Format: First name + Last initial (e.g. John S.)</p>
+                </div>
               </div>
+
               <div className="grid grid-cols-1 gap-2 max-h-[40vh] overflow-y-auto pr-1">
                 {players.map((p, idx) => (
                   <div key={p.id} className="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
@@ -227,26 +242,22 @@ const App: React.FC = () => {
                   <Card key={match.id} className={`${match.completed ? 'opacity-60 grayscale-[0.5]' : 'border-l-8 border-lime-500 shadow-lg'}`}>
                     <div className="p-4 space-y-4">
                       <div className="flex-1 space-y-4">
-                        {/* Team 1 Highlighted Block */}
                         <div className="flex justify-between items-center bg-lime-50/50 dark:bg-lime-900/10 p-3 rounded-xl border border-lime-100 dark:border-lime-900/30">
                           <div className="flex-1 font-black uppercase text-sm leading-tight text-lime-800 dark:text-lime-400">{match.team1[0]?.name}<br/>{match.team1[1]?.name}</div>
                           <input type="tel" value={match.score1} onChange={(e) => updateScore(match.id, 1, e.target.value)} onFocus={(e) => e.target.select()} className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl text-center text-3xl font-black border-2 border-lime-200 focus:border-lime-500 outline-none" />
                         </div>
                         
-                        {/* Divider with VS */}
                         <div className="relative py-1">
                           <div className="absolute inset-0 flex items-center"><div className="w-full border-t-2 border-dashed border-slate-200 dark:border-slate-800" /></div>
                           <div className="relative flex justify-center"><span className="bg-white dark:bg-slate-900 px-4 text-[10px] font-black text-slate-400 italic uppercase border-2 border-slate-100 dark:border-slate-800 rounded-full">Versus</span></div>
                         </div>
 
-                        {/* Team 2 Highlighted Block */}
                         <div className="flex justify-between items-center bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100 dark:border-blue-900/30">
                           <div className="flex-1 font-black uppercase text-sm leading-tight text-blue-800 dark:text-blue-400">{match.team2[0]?.name}<br/>{match.team2[1]?.name}</div>
                           <input type="tel" value={match.score2} onChange={(e) => updateScore(match.id, 2, e.target.value)} onFocus={(e) => e.target.select()} className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl text-center text-3xl font-black border-2 border-blue-200 focus:border-blue-500 outline-none" />
                         </div>
                       </div>
                       
-                      {/* Horizontal Finalize Button */}
                       {match.completed ? (
                          <button onClick={() => setRounds(prev => prev.map(r => ({...r, matches: r.matches.map(m => m.id === match.id ? {...m, completed: false} : m)})))} className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl font-black text-[10px] uppercase flex items-center justify-center gap-2">
                            <Edit2 size={14}/> Edit Scores
