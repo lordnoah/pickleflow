@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Users, Trophy, Settings, Plus, Trash2, CheckCircle2, ChevronLeft, 
   PlayCircle, Edit2, LayoutGrid, Medal, RefreshCw, Play, Pause, 
-  RotateCcw, Info, X, AlertCircle, CheckCircle, Coffee, Upload, Download
+  RotateCcw, Info, X, AlertCircle, CheckCircle, Coffee, Upload, Download, ExternalLink
 } from 'lucide-react';
 import { Card } from './components/Card';
 import { PickleFlowLogo, DEFAULT_PLAYERS, ROUND_OPTIONS, DURATION_OPTIONS, COURT_OPTIONS } from './constants';
@@ -195,7 +195,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 mt-6">
-        {/* --- SETUP VIEW --- */}
+        {/* --- SETUP --- */}
         {view === 'setup' && (
           <div className="max-w-2xl mx-auto space-y-6">
             <Card className="p-6">
@@ -230,9 +230,9 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- PLAY VIEW --- */}
+        {/* --- PLAY --- */}
         {view === 'play' && rounds[currentRoundIndex] && (
-          <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4">
+          <div key={`round-${currentRoundIndex}`} className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border shadow-md flex items-center justify-between">
                 <button onClick={() => setCurrentRoundIndex(Math.max(0, currentRoundIndex - 1))} disabled={currentRoundIndex === 0} className="p-2 text-slate-400 disabled:opacity-20"><ChevronLeft size={32}/></button>
                 <div className="text-center">
@@ -284,7 +284,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- SCHEDULE VIEW --- */}
+        {/* --- SUMMARY / SCHEDULE --- */}
         {view === 'summary' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in-95">
             {rounds.map((round, rIdx) => {
@@ -292,26 +292,28 @@ const App: React.FC = () => {
               return (
                 <Card 
                   key={rIdx} 
-                  onClick={() => {
-                    setCurrentRoundIndex(rIdx);
-                    setView('play');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className={`p-4 cursor-pointer transition-all duration-300 hover:border-lime-400 active:scale-[0.98] group ${
+                  className={`p-4 transition-all duration-300 ${
                     isActive 
                       ? 'ring-4 ring-lime-500 ring-offset-4 scale-[1.02] shadow-2xl bg-white dark:bg-slate-900 z-10' 
-                      : 'opacity-60 grayscale-[0.2] hover:opacity-100 hover:grayscale-0'
+                      : 'opacity-60 grayscale-[0.2]'
                   }`}
                 >
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className={`font-black uppercase italic transition-colors ${isActive ? 'text-lime-600 text-lg' : 'text-slate-400 text-xs group-hover:text-lime-500'}`}>
-                      Round {round.number}
-                    </h3>
-                    {isActive ? (
-                      <span className="bg-lime-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse uppercase">Active</span>
-                    ) : (
-                      <span className="text-[7px] font-black text-slate-300 uppercase group-hover:text-lime-400">Click to Edit</span>
-                    )}
+                  <div className="flex justify-between items-start mb-4">
+                    <button 
+                      onClick={() => {
+                        setCurrentRoundIndex(rIdx);
+                        setView('play');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className={`flex flex-col items-start group transition-transform active:scale-95`}
+                    >
+                      <h3 className={`font-black uppercase italic flex items-center gap-1 transition-colors ${isActive ? 'text-lime-600 text-lg' : 'text-slate-400 text-xs group-hover:text-lime-500'}`}>
+                        Round {round.number}
+                        <ExternalLink size={isActive ? 14 : 10} className="opacity-40 group-hover:opacity-100" />
+                      </h3>
+                      {!isActive && <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest group-hover:text-lime-400">Jump to Play</span>}
+                    </button>
+                    {isActive && <span className="bg-lime-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse uppercase">Active</span>}
                   </div>
                   
                   <div className="space-y-4">
@@ -325,7 +327,7 @@ const App: React.FC = () => {
                           <p className="text-[11px] font-black uppercase leading-none">{m.team1.map(p => p.name).join(' & ')}</p>
                           <div className="flex items-center gap-2 py-1">
                             <div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-700" />
-                            <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">VS</span>
+                            <span className="text-[7px] font-black text-slate-400 uppercase">VS</span>
                             <div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-700" />
                           </div>
                           <p className="text-[11px] font-black uppercase leading-none">{m.team2.map(p => p.name).join(' & ')}</p>
@@ -338,9 +340,7 @@ const App: React.FC = () => {
                         <div className="flex items-center gap-1.5 mb-1 text-orange-500">
                           <Coffee size={10} /><p className="text-[8px] font-black uppercase tracking-wider text-orange-400">Resting:</p>
                         </div>
-                        <p className="text-[10px] font-bold text-orange-700/80 dark:text-orange-400/80 leading-tight">
-                          {round.sittingOut.map(p => p.name).join(', ')}
-                        </p>
+                        <p className="text-[10px] font-bold text-orange-700/80 dark:text-orange-400/80 leading-tight">{round.sittingOut.map(p => p.name).join(', ')}</p>
                       </div>
                     )}
                   </div>
@@ -350,7 +350,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- LEADERBOARD VIEW --- */}
+        {/* --- LEADERBOARD --- */}
         {view === 'leaderboard' && (
           <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4">
             <div className="flex justify-between items-end">
