@@ -2,12 +2,9 @@
 import React from 'react';
 
 export const DEFAULT_PLAYERS = [
-  { id: 1, name: 'Alex' }, { id: 2, name: 'Jordan' },
-  { id: 3, name: 'Taylor' }, { id: 4, name: 'Morgan' },
-  { id: 5, name: 'Casey' }, { id: 6, name: 'Riley' },
-  { id: 7, name: 'Quinn' }, { id: 8, name: 'Parker' },
-  { id: 9, name: 'Charlie' }, { id: 10, name: 'Skyler' },
-  { id: 11, name: 'Sage' }, { id: 12, name: 'River' }
+  { id: 1, name: 'David M' }, { id: 2, name: 'Noah M' },
+  { id: 3, name: 'Graham B' }, { id: 4, name: 'Morgan R' },
+  { id: 5, name: 'Casey H' }, { id: 6, name: 'Riley F' },
 ];
 
 export const ROUND_OPTIONS = [4, 5, 6, 8, 10, 12];
