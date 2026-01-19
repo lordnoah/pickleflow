@@ -31,22 +31,12 @@ const App: React.FC = () => {
   const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- FIXED: AUTOMATIC ACTIVE ROUND DETECTION ---
+  // --- AUTOMATIC ACTIVE ROUND DETECTION ---
   const trueActiveRoundIndex = useMemo(() => {
     if (rounds.length === 0) return 0;
-    // Find the index of the first round that has at least one incomplete match
     const firstIncompleteIdx = rounds.findIndex(r => r.matches.some(m => !m.completed));
-    // If all matches in all rounds are completed, highlight the last round
     return firstIncompleteIdx === -1 ? rounds.length - 1 : firstIncompleteIdx;
   }, [rounds]);
-
-  // Sync current view to true active round when a tournament starts or scores update
-  useEffect(() => {
-    if (rounds.length > 0 && view === 'play') {
-       // Optional: Auto-advance currentRoundIndex to trueActiveRoundIndex 
-       // only if the user hasn't manually navigated away
-    }
-  }, [trueActiveRoundIndex]);
 
   // --- PERSISTENCE ---
   useEffect(() => {
@@ -104,17 +94,27 @@ const App: React.FC = () => {
     reader.readAsText(file);
   };
 
-  const handleAddPlayer = () => {
-    if (!isNameValid) return;
+  // --- PLAYER NAME VALIDATION LOGIC ---
+  const nameParts = newPlayerName.trim().split(/\s+/);
+  const isBasicValid = nameParts.length >= 2 && nameParts[0].length > 0 && nameParts[nameParts.length - 1].length > 0;
+  
+  // Calculate formatted name to check for duplicates
+  const potentialFormattedName = useMemo(() => {
+    if (!isBasicValid) return '';
     const first = nameParts[0];
     const lastInitial = nameParts[nameParts.length - 1].charAt(0).toUpperCase();
-    const formattedName = `${first} ${lastInitial}.`;
-    setPlayers([...players, { id: Date.now(), name: formattedName }]);
+    return `${first} ${lastInitial}.`;
+  }, [newPlayerName, isBasicValid]);
+
+  const isDuplicate = useMemo(() => {
+    return players.some(p => p.name.toLowerCase() === potentialFormattedName.toLowerCase());
+  }, [potentialFormattedName, players]);
+
+  const handleAddPlayer = () => {
+    if (!isBasicValid || isDuplicate) return;
+    setPlayers([...players, { id: Date.now(), name: potentialFormattedName }]);
     setNewPlayerName('');
   };
-
-  const nameParts = newPlayerName.trim().split(/\s+/);
-  const isNameValid = nameParts.length >= 2 && nameParts[0].length > 0 && nameParts[nameParts.length - 1].length > 0;
 
   // --- SCHEDULER ---
   const generateSchedule = () => {
@@ -218,13 +218,13 @@ const App: React.FC = () => {
               <h2 className="text-xl font-black text-lime-600 uppercase flex items-center gap-3 mb-6"><Users size={24} /> Players ({players.length})</h2>
               <div className="space-y-2 mb-6">
                 <div className="flex gap-2">
-                  <input type="text" value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddPlayer()} placeholder="Full Name (e.g. John Smith)" className={`flex-1 bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-4 outline-none font-bold border-2 transition-all ${newPlayerName.length > 0 ? (isNameValid ? 'border-lime-500/50' : 'border-orange-500/50') : 'border-transparent'}`} />
-                  <button onClick={handleAddPlayer} disabled={!isNameValid} className={`px-7 rounded-xl transition-all shadow-lg ${isNameValid ? 'bg-lime-600 text-white shadow-lime-500/20 active:scale-95' : 'bg-slate-200 text-slate-400 grayscale cursor-not-allowed'}`}><Plus size={32} /></button>
+                  <input type="text" value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddPlayer()} placeholder="Full Name (e.g. John Smith)" className={`flex-1 bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-4 outline-none font-bold border-2 transition-all ${newPlayerName.length > 0 ? (isDuplicate ? 'border-rose-500' : isBasicValid ? 'border-lime-500/50' : 'border-orange-500/50') : 'border-transparent'}`} />
+                  <button onClick={handleAddPlayer} disabled={!isBasicValid || isDuplicate} className={`px-7 rounded-xl transition-all shadow-lg ${isBasicValid && !isDuplicate ? 'bg-lime-600 text-white shadow-lime-500/20 active:scale-95' : 'bg-slate-200 text-slate-400 grayscale cursor-not-allowed'}`}><Plus size={32} /></button>
                 </div>
                 <div className="flex items-center gap-2 px-1">
-                  {isNameValid ? <CheckCircle size={12} className="text-lime-500" /> : <AlertCircle size={12} className={newPlayerName.length > 0 ? "text-orange-500" : "text-slate-400"} />}
-                  <p className={`text-[10px] font-black uppercase tracking-tight transition-colors ${newPlayerName.length > 0 ? (isNameValid ? 'text-lime-600' : 'text-orange-500') : 'text-slate-400'}`}>
-                    {isNameValid ? "Ready to add!" : "First & Last name required"}
+                  {isDuplicate ? <X size={12} className="text-rose-500" /> : isBasicValid ? <CheckCircle size={12} className="text-lime-500" /> : <AlertCircle size={12} className={newPlayerName.length > 0 ? "text-orange-500" : "text-slate-400"} />}
+                  <p className={`text-[10px] font-black uppercase tracking-tight transition-colors ${isDuplicate ? 'text-rose-500 font-black' : newPlayerName.length > 0 ? (isBasicValid ? 'text-lime-600' : 'text-orange-500') : 'text-slate-400'}`}>
+                    {isDuplicate ? "Player already exists!" : isBasicValid ? "Ready to add!" : "First & Last name required"}
                   </p>
                 </div>
               </div>
@@ -303,7 +303,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- SUMMARY / SCHEDULE --- */}
+        {/* --- SCHEDULE --- */}
         {view === 'summary' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in-95">
             {rounds.map((round, rIdx) => {
@@ -388,45 +388,26 @@ const App: React.FC = () => {
           <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
             <Card className="max-w-xl w-full p-8 relative animate-in zoom-in-95 duration-200 my-auto">
               <button onClick={() => setShowInfo(false)} className="absolute top-4 right-4 text-slate-400 hover:text-rose-500"><X size={24}/></button>
-              
               <div className="space-y-6">
                 <div>
                    <h3 className="text-3xl font-black uppercase italic text-lime-600 tracking-tighter flex items-center gap-2"><Trophy size={28}/> Tournament Scoring</h3>
                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">PickleFlow Round-Robin Logic</p>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs"><Hash size={16}/>Primary: PPG</div>
-                    <p className="text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">
-                      Players are ranked by <strong>Average Points Per Game (PPG)</strong>. This is your total points earned divided by matches played.
-                    </p>
+                    <p className="text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">Players are ranked by <strong>Average Points Per Game (PPG)</strong>. Points earned divided by matches played.</p>
                   </div>
                   <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs"><Scale size={16}/>Tie-Breaking</div>
-                    <p className="text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">
-                      If PPG is tied, the player with the most <strong>Total Wins</strong> takes the higher rank.
-                    </p>
+                    <p className="text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">If PPG is tied, the player with the most <strong>Total Wins</strong> takes the higher rank.</p>
                   </div>
                 </div>
-
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b pb-2">Why PPG instead of Total Points?</h4>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed italic">
-                    In a group with odd numbers, some players will inevitably sit out more often than others. <strong>PPG</strong> ensures that a player is not penalized for resting, as their ranking is based on their performance <em>while on the court</em>.
-                  </p>
-                </div>
-
-                <div className="bg-lime-600/5 dark:bg-lime-500/5 p-4 rounded-2xl border border-lime-200/50 dark:border-lime-500/20">
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-600 mb-2">Algorithm Fairness</h4>
-                  <ul className="text-xs font-bold text-slate-600 dark:text-slate-400 space-y-2">
-                    <li className="flex items-start gap-2"><CheckCircle size={14} className="text-lime-600 mt-0.5 shrink-0"/> Rotating partners ensures you play with as many different people as possible.</li>
-                    <li className="flex items-start gap-2"><CheckCircle size={14} className="text-lime-600 mt-0.5 shrink-0"/> The scheduler prioritizes players who have sat out the longest.</li>
-                    <li className="flex items-start gap-2"><CheckCircle size={14} className="text-lime-600 mt-0.5 shrink-0"/> Point differential is tracked but not used for ranking to encourage friendly play.</li>
-                  </ul>
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b pb-2">Fairness Guarantee</h4>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed italic">PPG ensures no penalty for resting. The scheduler prioritizes long-time sitters and rotating partners.</p>
                 </div>
               </div>
-
               <button onClick={() => setShowInfo(false)} className="w-full mt-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all">Got it</button>
             </Card>
           </div>
