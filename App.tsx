@@ -302,7 +302,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- SCHEDULE (Restored "Sitting Out" sections) --- */}
+        {/* --- SCHEDULE --- */}
         {view === 'summary' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in-95">
             {rounds.map((round, rIdx) => {
@@ -354,8 +354,6 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     ))}
-
-                    {/* RESTORED SITTING OUT SECTION */}
                     {round.sittingOut.length > 0 && (
                       <div className="mt-2 pt-3 border-t-2 border-dotted border-orange-200 dark:border-orange-900/40">
                         <div className="flex items-center gap-1.5 mb-1 text-orange-500">
@@ -395,31 +393,68 @@ const App: React.FC = () => {
           </div>
         )}
         
+        {/* --- DETAILED INFO CARD RESTORED --- */}
         {showInfo && (
           <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
             <Card className="max-w-xl w-full p-8 relative animate-in zoom-in-95 duration-200 my-auto">
-              <button onClick={() => setShowInfo(false)} className="absolute top-4 right-4 text-slate-400 hover:text-rose-500"><X size={24}/></button>
+              <button onClick={() => setShowInfo(false)} className="absolute top-4 right-4 text-slate-400 hover:text-rose-500 transition-colors"><X size={24}/></button>
+              
               <div className="space-y-6">
                 <div>
-                   <h3 className="text-3xl font-black uppercase italic text-lime-600 tracking-tighter flex items-center gap-2"><Trophy size={28}/> Tournament Scoring</h3>
-                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">PickleFlow Round-Robin Logic</p>
+                   <h3 className="text-3xl font-black uppercase italic text-lime-600 tracking-tighter flex items-center gap-2">
+                     <Trophy size={28}/> Tournament Scoring
+                   </h3>
+                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">PickleFlow Round-Robin Official Logic</p>
                 </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs"><Hash size={16}/>Primary: PPG</div>
-                    <p className="text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">Players are ranked by <strong>Average Points Per Game (PPG)</strong>. Points earned divided by matches played.</p>
+                    <div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs">
+                      <Hash size={16}/> Primary: PPG
+                    </div>
+                    <p className="text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">
+                      Players are ranked by <strong>Average Points Per Game (PPG)</strong>. This is your total points earned divided by matches played.
+                    </p>
                   </div>
                   <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs"><Scale size={16}/>Tie-Breaking</div>
-                    <p className="text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">If PPG is tied, the player with the most <strong>Total Wins</strong> takes the higher rank.</p>
+                    <div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs">
+                      <Scale size={16}/> Tie-Breaking
+                    </div>
+                    <p className="text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">
+                      If PPG is exactly tied, the player with the most <strong>Total Wins</strong> takes the higher rank.
+                    </p>
                   </div>
                 </div>
+
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b pb-2">Fairness Guarantee</h4>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed italic">PPG ensures no penalty for resting. The scheduler prioritizes long-time sitters and rotating partners.</p>
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b pb-2">Why PPG instead of Total Points?</h4>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed italic">
+                    In a group with odd numbers or limited courts, some players will inevitably sit out more often than others. <strong>PPG</strong> ensures that a player is not penalized for resting, as their ranking is based on their performance <em>while on the court</em>.
+                  </p>
+                </div>
+
+                <div className="bg-lime-600/5 dark:bg-lime-500/5 p-5 rounded-2xl border border-lime-200/50 dark:border-lime-500/20">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-600 mb-3">Fairness Guarantee</h4>
+                  <ul className="text-xs font-bold text-slate-600 dark:text-slate-400 space-y-3">
+                    <li className="flex items-start gap-2">
+                      <CheckCircle size={14} className="text-lime-600 mt-0.5 shrink-0"/> 
+                      <strong>Rotating Partners:</strong> The algorithm ensures you play with the maximum variety of partners possible.
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle size={14} className="text-lime-600 mt-0.5 shrink-0"/> 
+                      <strong>Rest Equity:</strong> Players who have sat out the most rounds are prioritized to play in the next round.
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle size={14} className="text-lime-600 mt-0.5 shrink-0"/> 
+                      <strong>Point Tracking:</strong> Points against are tracked to visualize defensive performance but do not impact rank.
+                    </li>
+                  </ul>
                 </div>
               </div>
-              <button onClick={() => setShowInfo(false)} className="w-full mt-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all">Got it</button>
+
+              <button onClick={() => setShowInfo(false)} className="w-full mt-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all">
+                Return to Standings
+              </button>
             </Card>
           </div>
         )}
