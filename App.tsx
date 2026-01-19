@@ -2,16 +2,19 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Users, Trophy, Settings, Plus, Trash2, CheckCircle2, ChevronLeft, 
   PlayCircle, Edit2, LayoutGrid, Medal, Activity, Download, Upload, 
-  RefreshCw, Play, Pause, RotateCcw, Info, X, ArrowUpDown
+  RefreshCw, Play, Pause, RotateCcw, Info, X, Check
 } from 'lucide-react';
 import { Card } from './components/Card';
 import { PickleFlowLogo, DEFAULT_PLAYERS, ROUND_OPTIONS, DURATION_OPTIONS, COURT_OPTIONS } from './constants';
 import { Player, Match, Round, PlayerStats, View, TournamentSession } from './types';
 
 const App: React.FC = () => {
-  // --- STATE ---
+  // --- CORE STATE ---
   const [view, setView] = useState<View>(() => (localStorage.getItem('pf_view') as View) || 'setup');
-  const [players, setPlayers] = useState<Player[]>(() => JSON.parse(localStorage.getItem('pf_players') || JSON.stringify(DEFAULT_PLAYERS)));
+  const [players, setPlayers] = useState<Player[]>(() => {
+    const saved = localStorage.getItem('pf_players');
+    return saved ? JSON.parse(saved) : DEFAULT_PLAYERS;
+  });
   const [rounds, setRounds] = useState<Round[]>(() => JSON.parse(localStorage.getItem('pf_rounds') || '[]'));
   const [currentRoundIndex, setCurrentRoundIndex] = useState<number>(() => parseInt(localStorage.getItem('pf_round_idx') || '0'));
   const [courtCount, setCourtCount] = useState(() => parseInt(localStorage.getItem('pf_courts') || '3'));
@@ -29,7 +32,7 @@ const App: React.FC = () => {
   const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- PERSISTENCE (AUTOSAVE) ---
+  // --- PERSISTENCE ---
   useEffect(() => {
     localStorage.setItem('pf_view', view);
     localStorage.setItem('pf_players', JSON.stringify(players));
@@ -59,7 +62,7 @@ const App: React.FC = () => {
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
-  // --- SCHEDULER & SCORING ---
+  // --- SCHEDULER ---
   const generateSchedule = () => {
     if (players.length < 4) return;
     const newRounds: Round[] = [];
@@ -100,6 +103,13 @@ const App: React.FC = () => {
     setRounds(newRounds); setCurrentRoundIndex(0); setTimeLeft(selectedDuration * 60); setView('play');
   };
 
+  const updateScore = (matchId: string, team: 1 | 2, value: string) => {
+    const val = value.replace(/\D/g, '');
+    setRounds(prev => prev.map((round, idx) => idx !== currentRoundIndex ? round : {
+      ...round, matches: round.matches.map(m => m.id === matchId ? (team === 1 ? { ...m, score1: val } : { ...m, score2: val }) : m)
+    }));
+  };
+
   const leaderboard = useMemo<PlayerStats[]>(() => {
     const stats: Record<number, any> = {};
     players.forEach(p => stats[p.id] = { id: p.id, name: p.name, wins: 0, losses: 0, gamesPlayed: 0, pointsFor: 0, pointsAgainst: 0 });
@@ -120,11 +130,9 @@ const App: React.FC = () => {
         <div className="max-w-2xl mx-auto flex flex-col gap-4">
           <div className="flex justify-between items-center">
             <PickleFlowLogo />
-            <div className="flex gap-4">
-              <button onClick={() => confirm("Reset all data?") && (localStorage.clear() || window.location.reload())} className="flex flex-col items-center text-slate-400 hover:text-rose-500 transition-colors">
-                <RefreshCw size={18} /><span className="text-[8px] font-black uppercase mt-1">Wipe</span>
-              </button>
-            </div>
+            <button onClick={() => confirm("Reset all data?") && (localStorage.clear() || window.location.reload())} className="flex flex-col items-center text-slate-400 hover:text-rose-500 transition-colors">
+              <RefreshCw size={18} /><span className="text-[8px] font-black uppercase mt-1">Wipe</span>
+            </button>
           </div>
           {rounds.length > 0 && (
             <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
@@ -139,50 +147,115 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 mt-6">
+        {/* --- SETUP VIEW --- */}
+        {view === 'setup' && (
+          <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4">
+            <Card className="p-6">
+              <h2 className="text-xl font-black text-lime-600 uppercase flex items-center gap-3 mb-6"><Users size={24} /> Players ({players.length})</h2>
+              <div className="flex gap-2 mb-6">
+                <input 
+                  type="text" 
+                  value={newPlayerName} 
+                  onChange={(e) => setNewPlayerName(e.target.value)} 
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newPlayerName.trim()) {
+                      setPlayers([...players, { id: Date.now(), name: newPlayerName.trim() }]);
+                      setNewPlayerName('');
+                    }
+                  }} 
+                  placeholder="Enter Name" 
+                  className="flex-1 bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-4 outline-none font-bold" 
+                />
+                <button 
+                  onClick={() => { 
+                    if(newPlayerName.trim()) { 
+                      setPlayers([...players, { id: Date.now(), name: newPlayerName.trim() }]); 
+                      setNewPlayerName(''); 
+                    }
+                  }} 
+                  className="bg-lime-600 text-white px-7 rounded-xl active:scale-95 transition-transform"
+                >
+                  <Plus size={32} />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-2 max-h-[40vh] overflow-y-auto pr-1">
+                {players.map((p, idx) => (
+                  <div key={p.id} className="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <span className="font-black truncate flex-1">{idx + 1}. {p.name}</span>
+                    <button onClick={() => setPlayers(players.filter(pl => pl.id !== p.id))} className="text-slate-300 hover:text-rose-500 p-2"><Trash2 size={20} /></button>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border text-center">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase">Rounds</h3>
+                <select value={numRounds} onChange={(e) => setNumRounds(parseInt(e.target.value))} className="w-full bg-transparent font-black text-xl text-lime-600 outline-none">{ROUND_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}</select>
+              </div>
+              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border text-center">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase">Min / Round</h3>
+                <select value={selectedDuration} onChange={(e) => {setSelectedDuration(parseInt(e.target.value)); setTimeLeft(parseInt(e.target.value)*60);}} className="w-full bg-transparent font-black text-xl text-lime-600 outline-none">{DURATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}</select>
+              </div>
+              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border text-center">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase">Courts</h3>
+                <select value={courtCount} onChange={(e) => setCourtCount(parseInt(e.target.value))} className="w-full bg-transparent font-black text-xl text-lime-600 outline-none">{COURT_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}</select>
+              </div>
+            </div>
+            <button onClick={generateSchedule} className="w-full py-6 bg-lime-600 text-white rounded-2xl font-black text-2xl uppercase italic tracking-tighter shadow-xl hover:bg-lime-700 active:scale-[0.98] transition-all">Start Tournament</button>
+          </div>
+        )}
+
         {/* --- PLAY VIEW --- */}
         {view === 'play' && rounds[currentRoundIndex] && (
           <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4">
              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border shadow-md flex items-center justify-between">
                 <button onClick={() => setCurrentRoundIndex(Math.max(0, currentRoundIndex - 1))} className="p-2 text-slate-400 disabled:opacity-20"><ChevronLeft size={32}/></button>
                 <div className="text-center">
-                  <p className="text-2xl font-black italic uppercase text-slate-900 dark:text-white">Round {currentRoundIndex + 1}</p>
-                  <div className="flex items-center gap-3 mt-1">
+                  <p className="text-2xl font-black uppercase italic">Round {currentRoundIndex + 1}</p>
+                  <div className="flex items-center justify-center gap-3 mt-1">
                     <button onClick={() => setTimeLeft(selectedDuration * 60)} className="text-slate-400"><RotateCcw size={14}/></button>
-                    <span className="font-mono font-black text-lime-600">{formatTime(timeLeft)}</span>
-                    <button onClick={toggleTimer} className="text-slate-400">{timerActive ? <Pause size={14}/> : <Play size={14}/>}</button>
+                    <span className="font-mono font-black text-lime-600 tracking-widest">{formatTime(timeLeft)}</span>
+                    <button onClick={toggleTimer} className="text-slate-400">{timerActive ? <Pause size={14} fill="currentColor"/> : <Play size={14} fill="currentColor"/>}</button>
                   </div>
                 </div>
                 <button onClick={() => currentRoundIndex < rounds.length - 1 ? setCurrentRoundIndex(currentRoundIndex + 1) : setView('leaderboard')} className="p-2 text-slate-400 rotate-180"><ChevronLeft size={32}/></button>
              </div>
 
-             <div className="space-y-4">
+             <div className="space-y-6">
                 {rounds[currentRoundIndex].matches.map((match) => (
                   <Card key={match.id} className={`${match.completed ? 'opacity-60 grayscale-[0.5]' : 'border-l-8 border-lime-500 shadow-lg'}`}>
-                    <div className="p-4 flex gap-4">
+                    <div className="p-4 space-y-4">
                       <div className="flex-1 space-y-4">
                         {/* Team 1 Highlighted Block */}
-                        <div className="flex justify-between items-center bg-lime-50/50 dark:bg-lime-900/10 p-2 rounded-lg border border-lime-100 dark:border-lime-900/30">
+                        <div className="flex justify-between items-center bg-lime-50/50 dark:bg-lime-900/10 p-3 rounded-xl border border-lime-100 dark:border-lime-900/30">
                           <div className="flex-1 font-black uppercase text-sm leading-tight text-lime-800 dark:text-lime-400">{match.team1[0]?.name}<br/>{match.team1[1]?.name}</div>
-                          <input type="tel" value={match.score1} onChange={(e) => updateScore(match.id, 1, e.target.value)} onFocus={(e) => e.target.select()} className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl text-center text-3xl font-black border-2 border-lime-200 focus:border-lime-500 outline-none transition-all" />
+                          <input type="tel" value={match.score1} onChange={(e) => updateScore(match.id, 1, e.target.value)} onFocus={(e) => e.target.select()} className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl text-center text-3xl font-black border-2 border-lime-200 focus:border-lime-500 outline-none" />
                         </div>
                         
                         {/* Divider with VS */}
-                        <div className="relative py-2">
+                        <div className="relative py-1">
                           <div className="absolute inset-0 flex items-center"><div className="w-full border-t-2 border-dashed border-slate-200 dark:border-slate-800" /></div>
-                          <div className="relative flex justify-center"><span className="bg-white dark:bg-slate-900 px-4 text-[10px] font-black text-slate-400 italic tracking-tighter uppercase border-2 border-slate-100 dark:border-slate-800 rounded-full">Versus</span></div>
+                          <div className="relative flex justify-center"><span className="bg-white dark:bg-slate-900 px-4 text-[10px] font-black text-slate-400 italic uppercase border-2 border-slate-100 dark:border-slate-800 rounded-full">Versus</span></div>
                         </div>
 
                         {/* Team 2 Highlighted Block */}
-                        <div className="flex justify-between items-center bg-blue-50/50 dark:bg-blue-900/10 p-2 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                        <div className="flex justify-between items-center bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100 dark:border-blue-900/30">
                           <div className="flex-1 font-black uppercase text-sm leading-tight text-blue-800 dark:text-blue-400">{match.team2[0]?.name}<br/>{match.team2[1]?.name}</div>
-                          <input type="tel" value={match.score2} onChange={(e) => updateScore(match.id, 2, e.target.value)} onFocus={(e) => e.target.select()} className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl text-center text-3xl font-black border-2 border-blue-200 focus:border-blue-500 outline-none transition-all" />
+                          <input type="tel" value={match.score2} onChange={(e) => updateScore(match.id, 2, e.target.value)} onFocus={(e) => e.target.select()} className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl text-center text-3xl font-black border-2 border-blue-200 focus:border-blue-500 outline-none" />
                         </div>
                       </div>
                       
-                      <button onClick={() => setRounds(prev => prev.map(r => ({...r, matches: r.matches.map(m => m.id === match.id ? {...m, completed: !m.completed} : m)})))} 
-                              className={`w-16 flex items-center justify-center rounded-2xl font-black text-[10px] uppercase vertical-rl tracking-widest transition-all ${match.completed ? 'bg-slate-200 text-slate-500' : 'bg-lime-600 text-white shadow-lime-500/20 shadow-xl active:scale-95'}`}>
-                        {match.completed ? 'Score Added' : 'Add Final Score'}
-                      </button>
+                      {/* Horizontal Finalize Button */}
+                      {match.completed ? (
+                         <button onClick={() => setRounds(prev => prev.map(r => ({...r, matches: r.matches.map(m => m.id === match.id ? {...m, completed: false} : m)})))} className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl font-black text-[10px] uppercase flex items-center justify-center gap-2">
+                           <Edit2 size={14}/> Edit Scores
+                         </button>
+                      ) : (
+                        <button onClick={() => setRounds(prev => prev.map(r => ({...r, matches: r.matches.map(m => m.id === match.id ? {...m, completed: true} : m)})))} className="w-full py-4 bg-lime-600 text-white rounded-xl font-black text-xs uppercase shadow-lg shadow-lime-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all">
+                          <CheckCircle2 size={18}/> Add Final Score
+                        </button>
+                      )}
                     </div>
                   </Card>
                 ))}
@@ -192,7 +265,7 @@ const App: React.FC = () => {
 
         {/* --- SCHEDULE VIEW --- */}
         {view === 'summary' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in-95">
             {rounds.map((round, rIdx) => {
               const isActive = rIdx === currentRoundIndex;
               return (
@@ -220,10 +293,10 @@ const App: React.FC = () => {
 
         {/* --- LEADERBOARD VIEW --- */}
         {view === 'leaderboard' && (
-          <div className="max-w-3xl mx-auto space-y-6">
+          <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4">
             <div className="flex justify-between items-end">
               <div>
-                <h2 className="text-4xl font-black italic uppercase tracking-tighter text-slate-900 dark:text-white">Standings</h2>
+                <h2 className="text-4xl font-black italic uppercase tracking-tighter">Standings</h2>
                 <button onClick={() => setShowInfo(true)} className="mt-2 flex items-center gap-1.5 text-lime-600 font-black text-[10px] uppercase tracking-widest hover:underline">
                   <Info size={14}/> How is this calculated?
                 </button>
@@ -265,12 +338,12 @@ const App: React.FC = () => {
               <button onClick={() => setShowInfo(false)} className="absolute top-4 right-4 text-slate-400 hover:text-rose-500"><X size={24}/></button>
               <h3 className="text-2xl font-black uppercase italic text-lime-600 mb-4">Scoring Logic</h3>
               <div className="space-y-4 text-sm font-bold text-slate-600 dark:text-slate-400 leading-relaxed">
-                <p>PickleFlow uses an <span className="text-slate-900 dark:text-white uppercase">Individual Points</span> system. Even though you play in teams, your rank is based on your own performance across different partners.</p>
+                <p>PickleFlow ranks players individually based on their performance across all rounds.</p>
                 <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl space-y-2">
-                  <p>1. <span className="text-lime-600">Total Points:</span> The sum of every point you earned in every match played.</p>
-                  <p>2. <span className="text-lime-600">PPG (Points Per Game):</span> Total Points ÷ Games Played. This is the fairest way to rank players if some people rested more rounds than others.</p>
+                  <p>1. <span className="text-lime-600 font-black">PPG (Points Per Game):</span> Total Points ÷ Games Played. This is the primary rank stat.</p>
+                  <p>2. <span className="text-lime-600 font-black">Total Points:</span> The cumulative sum of every point you earned.</p>
                 </div>
-                <p className="text-[10px] uppercase tracking-widest text-slate-400">Pro Tip: Ties are broken by total point differential (Points For minus Points Against).</p>
+                <p className="text-[10px] uppercase tracking-widest text-slate-400">Ties are broken by total point differential.</p>
               </div>
             </Card>
           </div>
