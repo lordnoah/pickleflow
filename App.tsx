@@ -92,35 +92,24 @@ const App: React.FC = () => {
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
-  // --- EXPORT LOGIC ---
+  // --- EXPORT/IMPORT ---
   const handleExport = () => {
     const data: TournamentSession = {
-      players,
-      rounds,
-      currentRoundIndex,
-      courtCount,
-      numRounds,
-      selectedDuration,
-      view,
+      players, rounds, currentRoundIndex, courtCount, numRounds, selectedDuration, view,
       timestamp: new Date().toISOString()
     };
-    
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `pickleflow-session-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
+    link.download = `pickleflow-${new Date().toISOString().split('T')[0]}.json`;
     link.click();
-    document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
 
-  // --- IMPORT LOGIC ---
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -130,19 +119,16 @@ const App: React.FC = () => {
         if (data.courtCount) setCourtCount(data.courtCount);
         if (data.numRounds) setNumRounds(data.numRounds);
         if (data.selectedDuration) setSelectedDuration(data.selectedDuration);
-        if (data.view) setView(data.view);
         if (typeof data.currentRoundIndex === 'number') setCurrentRoundIndex(data.currentRoundIndex);
-      } catch (err) {
-        alert("Invalid tournament file.");
-      }
+        setView(data.view || 'play');
+      } catch (err) { alert("Invalid file."); }
     };
     reader.readAsText(file);
   };
 
-  // --- VALIDATION HELPERS ---
+  // --- VALIDATION & ADD PLAYER ---
   const nameParts = newPlayerName.trim().split(/\s+/).filter(p => p.length > 0);
   const isValidName = nameParts.length >= 2 && nameParts[0].length > 1;
-  
   const formattedPreview = useMemo(() => {
     if (!isValidName) return '';
     const first = nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1).toLowerCase();
@@ -150,9 +136,7 @@ const App: React.FC = () => {
     return `${first} ${lastInitial}.`;
   }, [nameParts, isValidName]);
 
-  const isDuplicate = useMemo(() => {
-    return players.some(p => p.name.toLowerCase() === formattedPreview.toLowerCase());
-  }, [players, formattedPreview]);
+  const isDuplicate = useMemo(() => players.some(p => p.name.toLowerCase() === formattedPreview.toLowerCase()), [players, formattedPreview]);
 
   const handleAddPlayer = () => {
     if (!isValidName || isDuplicate) return;
@@ -165,10 +149,7 @@ const App: React.FC = () => {
     const newRounds: Round[] = [];
     const playCount: Record<number, number> = {};
     const partnerHistory: Record<string, number> = {};
-    players.forEach(p => {
-      playCount[p.id] = 0;
-      players.forEach(p2 => { if (p.id !== p2.id) partnerHistory[`${Math.min(p.id, p2.id)}-${Math.max(p.id, p2.id)}`] = 0; });
-    });
+    players.forEach(p => { playCount[p.id] = 0; players.forEach(p2 => { if (p.id !== p2.id) partnerHistory[`${Math.min(p.id, p2.id)}-${Math.max(p.id, p2.id)}`] = 0; })});
 
     for (let r = 0; r < numRounds; r++) {
       const sorted = [...players].sort((a, b) => playCount[a.id] - playCount[b.id] || Math.random() - 0.5);
@@ -177,15 +158,13 @@ const App: React.FC = () => {
       const available = [...active];
       const roundMatches: Match[] = [];
       let cNum = 1;
-
       while (available.length >= 4) {
         const group = available.splice(0, 4);
         const pairings = [
           { t1: [group[0], group[1]], t2: [group[2], group[3]] },
           { t1: [group[0], group[2]], t2: [group[1], group[3]] },
           { t1: [group[0], group[3]], t2: [group[1], group[2]] }
-        ];
-        pairings.sort((a, b) => {
+        ].sort((a, b) => {
           const getH = (p1: Player, p2: Player) => partnerHistory[`${Math.min(p1.id, p2.id)}-${Math.max(p1.id, p2.id)}`] || 0;
           return (getH(a.t1[0], a.t1[1]) + getH(a.t2[0], a.t2[1])) - (getH(b.t1[0], b.t1[1]) + getH(b.t2[0], b.t2[1]));
         });
@@ -228,14 +207,8 @@ const App: React.FC = () => {
           <div className="flex justify-between items-center">
             <PickleFlowLogo />
             <div className="flex gap-4">
-              <button onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center text-slate-400 hover:text-lime-600 transition-colors">
-                <Upload size={18} />
-                <span className="text-[8px] font-black uppercase mt-1">Import</span>
-              </button>
-              <button onClick={handleExport} className="flex flex-col items-center text-slate-400 hover:text-lime-600 transition-colors">
-                <Download size={18} />
-                <span className="text-[8px] font-black uppercase mt-1">Export</span>
-              </button>
+              <button onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center text-slate-400 hover:text-lime-600 transition-colors"><Upload size={18} /><span className="text-[8px] font-black uppercase mt-1">Import</span></button>
+              <button onClick={handleExport} className="flex flex-col items-center text-slate-400 hover:text-lime-600 transition-colors"><Download size={18} /><span className="text-[8px] font-black uppercase mt-1">Export</span></button>
               <button onClick={() => confirm("Reset all data?") && (localStorage.clear() || window.location.reload())} className="flex flex-col items-center text-slate-400 hover:text-rose-500 transition-colors"><RefreshCw size={18} /><span className="text-[8px] font-black uppercase mt-1">Wipe</span></button>
             </div>
           </div>
@@ -254,74 +227,30 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 mt-6">
-        {/* SETUP VIEW */}
         {view === 'setup' && (
           <div className="max-w-2xl mx-auto space-y-6">
             <Card className="p-6">
               <h2 className="text-xl font-black text-lime-600 uppercase flex items-center gap-3 mb-6"><Users size={24} /> Players ({players.length})</h2>
-              
               <div className="space-y-3 mb-6">
                 <div className="flex gap-2 relative">
-                  <input 
-                    type="text" 
-                    value={newPlayerName} 
-                    onChange={(e) => setNewPlayerName(e.target.value)} 
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddPlayer()}
-                    placeholder="First Last (e.g. John Smith)" 
-                    className={`flex-1 bg-slate-100 dark:bg-slate-700 rounded-xl pl-4 pr-12 py-4 outline-none font-bold border-2 transition-all ${
-                      newPlayerName.trim() === '' ? 'border-transparent' : 
-                      isDuplicate ? 'border-rose-500' :
-                      isValidName ? 'border-lime-500' : 'border-orange-400'
-                    }`} 
-                  />
-                  {newPlayerName && (
-                    <button onClick={() => setNewPlayerName('')} className="absolute right-[88px] top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-rose-500 transition-colors"><X size={20} /></button>
-                  )}
-                  {isValidName && !isDuplicate && (
-                    <button onClick={handleAddPlayer} className="px-7 rounded-xl bg-lime-600 text-white shadow-lg animate-in zoom-in-75 duration-200"><Plus size={32} /></button>
-                  )}
+                  <input type="text" value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddPlayer()} placeholder="First Last" className={`flex-1 bg-slate-100 dark:bg-slate-700 rounded-xl pl-4 pr-12 py-4 outline-none font-bold border-2 transition-all ${newPlayerName.trim() === '' ? 'border-transparent' : isDuplicate ? 'border-rose-500' : isValidName ? 'border-lime-500' : 'border-orange-400'}`} />
+                  {newPlayerName && <button onClick={() => setNewPlayerName('')} className="absolute right-[88px] top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-rose-500"><X size={20} /></button>}
+                  {isValidName && !isDuplicate && <button onClick={handleAddPlayer} className="px-7 rounded-xl bg-lime-600 text-white shadow-lg"><Plus size={32} /></button>}
                 </div>
-                
-                {newPlayerName.trim() !== '' && (
-                  <div className="flex flex-col gap-1 px-1">
-                    {isDuplicate ? (
-                      <p className="text-rose-500 text-[10px] font-black uppercase flex items-center gap-1"><AlertCircle size={12}/> Player already exists</p>
-                    ) : !isValidName ? (
-                      <p className="text-orange-500 text-[10px] font-black uppercase flex items-center gap-1"><AlertCircle size={12}/> Enter first and last name</p>
-                    ) : (
-                      <p className="text-lime-600 text-[10px] font-black uppercase flex items-center gap-1"><CheckCircle size={12}/> Ready to add: {formattedPreview}</p>
-                    )}
-                  </div>
-                )}
               </div>
-
               <div className="grid grid-cols-1 gap-2 max-h-[40vh] overflow-y-auto pr-1">
-                {players.map((p, idx) => (
-                  <div key={p.id} className="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border">
-                    <span className="font-black">{idx + 1}. {p.name}</span>
-                    <button onClick={() => setPlayers(players.filter(pl => pl.id !== p.id))} className="text-slate-300 hover:text-rose-500 p-2"><Trash2 size={20} /></button>
-                  </div>
-                ))}
+                {players.map((p, idx) => (<div key={p.id} className="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border"><span className="font-black">{idx + 1}. {p.name}</span><button onClick={() => setPlayers(players.filter(pl => pl.id !== p.id))} className="text-slate-300 hover:text-rose-500 p-2"><Trash2 size={20} /></button></div>))}
               </div>
             </Card>
             <div className="grid grid-cols-3 gap-4">
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border text-center"><h3 className="text-[10px] font-black text-slate-400 uppercase">Rounds</h3><select value={numRounds} onChange={(e) => setNumRounds(parseInt(e.target.value))} className="w-full bg-transparent font-black text-xl text-lime-600 outline-none">{ROUND_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border text-center"><h3 className="text-[10px] font-black text-slate-400 uppercase">Min / Round</h3><select value={selectedDuration} onChange={(e) => {setSelectedDuration(parseInt(e.target.value)); setTimeLeft(parseInt(e.target.value)*60);}} className="w-full bg-transparent font-black text-xl text-lime-600 outline-none">{DURATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border text-center"><h3 className="text-[10px] font-black text-slate-400 uppercase">Courts</h3><select value={courtCount} onChange={(e) => setCourtCount(parseInt(e.target.value))} className="w-full bg-transparent font-black text-xl text-lime-600 outline-none">{COURT_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
+              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border text-center"><h3 className="text-[10px] font-black text-slate-400 uppercase">Rounds</h3><select value={numRounds} onChange={(e) => setNumRounds(parseInt(e.target.value))} className="w-full bg-transparent font-black text-xl text-lime-600">{ROUND_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
+              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border text-center"><h3 className="text-[10px] font-black text-slate-400 uppercase">Min / Round</h3><select value={selectedDuration} onChange={(e) => {setSelectedDuration(parseInt(e.target.value)); setTimeLeft(parseInt(e.target.value)*60);}} className="w-full bg-transparent font-black text-xl text-lime-600">{DURATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
+              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border text-center"><h3 className="text-[10px] font-black text-slate-400 uppercase">Courts</h3><select value={courtCount} onChange={(e) => setCourtCount(parseInt(e.target.value))} className="w-full bg-transparent font-black text-xl text-lime-600">{COURT_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
             </div>
-            <button 
-              onClick={generateSchedule} 
-              disabled={players.length < 4}
-              className={`w-full py-6 rounded-2xl font-black text-2xl uppercase italic tracking-tighter shadow-xl transition-all ${
-                players.length < 4 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-lime-600 text-white active:scale-[0.98]'
-              }`}
-            >
-              {players.length < 4 ? `Need ${4 - players.length} more players` : 'Start Tournament'}
-            </button>
+            <button onClick={generateSchedule} disabled={players.length < 4} className={`w-full py-6 rounded-2xl font-black text-2xl uppercase italic tracking-tighter shadow-xl transition-all ${players.length < 4 ? 'bg-slate-200 text-slate-400' : 'bg-lime-600 text-white'}`}>Start Tournament</button>
           </div>
         )}
 
-        {/* PLAY VIEW */}
         {view === 'play' && rounds[currentRoundIndex] && (
           <div className="max-w-2xl mx-auto space-y-6 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-300">
              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border shadow-md flex items-center justify-between">
@@ -329,7 +258,7 @@ const App: React.FC = () => {
                 <div className="text-center">
                   <div className="flex items-center justify-center gap-2">
                     <p className="text-2xl font-black uppercase italic">Round {currentRoundIndex + 1}</p>
-                    {currentRoundIndex === trueActiveRoundIndex && <span className="bg-lime-500 text-white text-[8px] px-2 py-0.5 rounded-full font-black animate-pulse">ACTIVE</span>}
+                    {currentRoundIndex === trueActiveRoundIndex && <span className="bg-lime-500 text-white text-[8px] px-2 py-0.5 rounded-full font-black animate-pulse uppercase tracking-widest">ACTIVE</span>}
                   </div>
                   <div className="flex items-center justify-center gap-3 mt-1">
                     <button onClick={() => setTimeLeft(selectedDuration * 60)} className="text-slate-400"><RotateCcw size={14}/></button>
@@ -339,23 +268,21 @@ const App: React.FC = () => {
                 </div>
                 <button onClick={() => currentRoundIndex < rounds.length - 1 ? setCurrentRoundIndex(currentRoundIndex + 1) : setView('leaderboard')} className="p-2 text-slate-400 rotate-180"><ChevronLeft size={32}/></button>
              </div>
-
              <div className="space-y-6">
                 {rounds[currentRoundIndex].matches.map((match) => (
                   <Card key={match.id} className={`${match.completed ? 'opacity-60 grayscale-[0.5]' : 'border-l-8 border-lime-500 shadow-lg'}`}>
                     <div className="p-4 space-y-4">
                       <div className="space-y-4">
-                        <div className="flex justify-between items-center bg-lime-50/50 dark:bg-lime-900/10 p-3 rounded-xl border border-lime-100 dark:border-lime-900/30">
-                          <div className="flex-1 font-black uppercase text-sm leading-tight text-lime-800 dark:text-lime-400">{match.team1[0]?.name}<br/>{match.team1[1]?.name}</div>
+                        <div className="flex justify-between items-center bg-lime-50/50 dark:bg-lime-900/10 p-3 rounded-xl border border-lime-100">
+                          <div className="flex-1 font-black uppercase text-sm text-lime-800 dark:text-lime-400">{match.team1[0]?.name}<br/>{match.team1[1]?.name}</div>
                           <input type="tel" value={match.score1} onChange={(e) => updateScore(match.id, 1, e.target.value)} onFocus={(e) => e.target.select()} className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl text-center text-3xl font-black border-2 border-lime-200 outline-none" />
                         </div>
-                        <div className="relative py-1 flex items-center"><div className="w-full border-t-2 border-dashed border-slate-200 dark:border-slate-800" /><span className="absolute left-1/2 -translate-x-1/2 bg-white dark:bg-slate-950 px-4 text-[10px] font-black text-slate-400 italic uppercase border-2 border-slate-100 dark:border-slate-800 rounded-full">VS</span></div>
-                        <div className="flex justify-between items-center bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100 dark:border-blue-900/30">
-                          <div className="flex-1 font-black uppercase text-sm leading-tight text-blue-800 dark:text-blue-400">{match.team2[0]?.name}<br/>{match.team2[1]?.name}</div>
+                        <div className="flex justify-between items-center bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100">
+                          <div className="flex-1 font-black uppercase text-sm text-blue-800 dark:text-blue-400">{match.team2[0]?.name}<br/>{match.team2[1]?.name}</div>
                           <input type="tel" value={match.score2} onChange={(e) => updateScore(match.id, 2, e.target.value)} onFocus={(e) => e.target.select()} className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl text-center text-3xl font-black border-2 border-blue-200 outline-none" />
                         </div>
                       </div>
-                      <button onClick={() => setRounds(prev => prev.map(r => ({...r, matches: r.matches.map(m => m.id === match.id ? {...m, completed: !m.completed} : m)})))} className={`w-full py-4 rounded-xl font-black text-xs uppercase flex items-center justify-center gap-2 transition-all ${match.completed ? 'bg-slate-100 text-slate-500' : 'bg-lime-600 text-white shadow-lg shadow-lime-500/20'}`}>
+                      <button onClick={() => setRounds(prev => prev.map(r => ({...r, matches: r.matches.map(m => m.id === match.id ? {...m, completed: !m.completed} : m)})))} className={`w-full py-4 rounded-xl font-black text-xs uppercase flex items-center justify-center gap-2 ${match.completed ? 'bg-slate-100 text-slate-500' : 'bg-lime-600 text-white shadow-lg'}`}>
                         {match.completed ? <><Edit2 size={18}/> Edit Scores</> : <><CheckCircle2 size={18}/> Add Final Score</>}
                       </button>
                     </div>
@@ -365,7 +292,45 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* LEADERBOARD VIEW */}
+        {/* RESTORED SUMMARY VIEW */}
+        {view === 'summary' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pb-24 animate-in fade-in zoom-in-95">
+            {rounds.map((round, rIdx) => {
+              const isActive = rIdx === trueActiveRoundIndex;
+              return (
+                <Card key={rIdx} className={`p-4 transition-all duration-300 ${isActive ? 'ring-4 ring-lime-500 scale-[1.02] shadow-2xl bg-white z-10' : 'opacity-60 grayscale-[0.2]'}`}>
+                  <div className="flex justify-between items-start mb-4">
+                    <button onClick={() => { setCurrentRoundIndex(rIdx); setView('play'); }} className="flex flex-col items-start group">
+                      <h3 className={`font-black uppercase italic flex items-center gap-1 ${isActive ? 'text-lime-600 text-lg' : 'text-slate-400 text-xs'}`}>Round {round.number} <ExternalLink size={isActive ? 14 : 10} /></h3>
+                    </button>
+                    {isActive && <span className="bg-lime-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse uppercase tracking-widest">ACTIVE</span>}
+                  </div>
+                  <div className="space-y-4">
+                    {round.matches.map((m, mIdx) => (
+                      <div key={mIdx} className={`p-3 rounded-xl border ${isActive ? 'border-lime-100 bg-lime-50/30' : 'border-slate-100 dark:border-slate-800'}`}>
+                        <div className="flex justify-between text-[8px] font-bold text-slate-400 mb-2 uppercase"><span>Court {m.court}</span>{m.completed && <span className="text-lime-600 font-black">Final: {m.score1}-{m.score2}</span>}</div>
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-black uppercase leading-none">{m.team1.map(p => p.name).join(' & ')}</p>
+                          <div className="flex items-center gap-2 py-1"><div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-800" /><span className="text-[7px] font-black text-slate-400 uppercase">VS</span><div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-800" /></div>
+                          <p className="text-[11px] font-black uppercase leading-none">{m.team2.map(p => p.name).join(' & ')}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {round.sittingOut.length > 0 && (
+                      <div className="mt-2 pt-3 border-t-2 border-dotted border-orange-200">
+                        <div className="flex items-center gap-1.5 mb-1 text-orange-500"><Coffee size={10} /><p className="text-[8px] font-black uppercase text-orange-400">Resting:</p></div>
+                        <div className="flex flex-wrap gap-1">
+                          {round.sittingOut.map(p => (<span key={p.id} className="text-[10px] font-bold text-orange-700/80 px-1">{p.name}</span>))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
         {view === 'leaderboard' && (
           <div className="max-w-3xl mx-auto space-y-6 pb-24">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -376,7 +341,6 @@ const App: React.FC = () => {
                 <button onClick={() => setSortKey('pointsFor')} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${sortKey === 'pointsFor' ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm' : 'text-slate-500'}`}>Total Pts</button>
               </div>
             </div>
-
             <div className="grid grid-cols-1 gap-3">
               {leaderboard.map((stat, idx) => (
                 <div key={stat.id} className={`flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border-2 transition-all ${idx < 3 ? 'border-lime-500 shadow-lg scale-[1.01]' : 'border-slate-100 dark:border-slate-800 opacity-90'}`}>
@@ -400,7 +364,7 @@ const App: React.FC = () => {
              <div className="text-center space-y-8 animate-in zoom-in-95">
                 <Bell size={100} className="text-white mx-auto animate-bounce" />
                 <h2 className="text-5xl font-black italic uppercase text-white tracking-tighter">Time's Up!</h2>
-                <button onClick={() => setShowTimeUp(false)} className="px-12 py-6 bg-white text-rose-600 rounded-[2rem] font-black text-2xl uppercase italic tracking-tighter shadow-2xl active:scale-95 transition-all">Clear Alert</button>
+                <button onClick={() => setShowTimeUp(false)} className="px-12 py-6 bg-white text-rose-600 rounded-[2rem] font-black text-2xl uppercase italic tracking-tighter shadow-2xl transition-all">Clear Alert</button>
              </div>
           </div>
         )}
