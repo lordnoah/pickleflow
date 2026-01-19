@@ -31,6 +31,13 @@ const App: React.FC = () => {
   const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // --- DERIVED STATE: TRUE ACTIVE ROUND ---
+  // The "True Active Round" is the first round that isn't fully completed.
+  const trueActiveRoundIndex = useMemo(() => {
+    const idx = rounds.findIndex(r => r.matches.some(m => !m.completed));
+    return idx === -1 && rounds.length > 0 ? rounds.length - 1 : idx;
+  }, [rounds]);
+
   // --- PERSISTENCE ---
   useEffect(() => {
     localStorage.setItem('pf_view', view);
@@ -61,7 +68,7 @@ const App: React.FC = () => {
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
-  // --- JSON DATA MGMT ---
+  // --- DATA MANAGEMENT ---
   const exportData = () => {
     const data: TournamentSession = { players, rounds, currentRoundIndex, courtCount, numRounds, selectedDuration };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -87,10 +94,6 @@ const App: React.FC = () => {
     reader.readAsText(file);
   };
 
-  // --- PLAYER VALIDATION ---
-  const nameParts = newPlayerName.trim().split(/\s+/);
-  const isNameValid = nameParts.length >= 2 && nameParts[0].length > 0 && nameParts[nameParts.length - 1].length > 0;
-
   const handleAddPlayer = () => {
     if (!isNameValid) return;
     const first = nameParts[0];
@@ -100,7 +103,10 @@ const App: React.FC = () => {
     setNewPlayerName('');
   };
 
-  // --- SCHEDULER ---
+  const nameParts = newPlayerName.trim().split(/\s+/);
+  const isNameValid = nameParts.length >= 2 && nameParts[0].length > 0 && nameParts[nameParts.length - 1].length > 0;
+
+  // --- TOURNAMENT GENERATION ---
   const generateSchedule = () => {
     if (players.length < 4) return;
     const newRounds: Round[] = [];
@@ -195,7 +201,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 mt-6">
-        {/* --- SETUP --- */}
+        {/* --- SETUP VIEW --- */}
         {view === 'setup' && (
           <div className="max-w-2xl mx-auto space-y-6">
             <Card className="p-6">
@@ -230,13 +236,16 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- PLAY --- */}
+        {/* --- PLAY VIEW --- */}
         {view === 'play' && rounds[currentRoundIndex] && (
           <div key={`round-${currentRoundIndex}`} className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border shadow-md flex items-center justify-between">
                 <button onClick={() => setCurrentRoundIndex(Math.max(0, currentRoundIndex - 1))} disabled={currentRoundIndex === 0} className="p-2 text-slate-400 disabled:opacity-20"><ChevronLeft size={32}/></button>
                 <div className="text-center">
-                  <p className="text-2xl font-black uppercase italic">Round {currentRoundIndex + 1}</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <p className="text-2xl font-black uppercase italic">Round {currentRoundIndex + 1}</p>
+                    {currentRoundIndex === trueActiveRoundIndex && <span className="bg-lime-500 text-white text-[8px] px-2 py-0.5 rounded-full font-black animate-pulse">ACTIVE</span>}
+                  </div>
                   <div className="flex items-center justify-center gap-3 mt-1">
                     <button onClick={() => setTimeLeft(selectedDuration * 60)} className="text-slate-400"><RotateCcw size={14}/></button>
                     <span className="font-mono font-black text-lime-600 tracking-widest text-lg">{formatTime(timeLeft)}</span>
@@ -284,18 +293,21 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- SUMMARY / SCHEDULE --- */}
+        {/* --- SCHEDULE VIEW --- */}
         {view === 'summary' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in-95">
             {rounds.map((round, rIdx) => {
-              const isActive = rIdx === currentRoundIndex;
+              const isActive = rIdx === trueActiveRoundIndex;
+              const isViewing = rIdx === currentRoundIndex;
               return (
                 <Card 
                   key={rIdx} 
                   className={`p-4 transition-all duration-300 ${
                     isActive 
                       ? 'ring-4 ring-lime-500 ring-offset-4 scale-[1.02] shadow-2xl bg-white dark:bg-slate-900 z-10' 
-                      : 'opacity-60 grayscale-[0.2]'
+                      : isViewing 
+                        ? 'border-2 border-blue-400 shadow-md bg-white dark:bg-slate-900 opacity-100'
+                        : 'opacity-60 grayscale-[0.2]'
                   }`}
                 >
                   <div className="flex justify-between items-start mb-4">
@@ -307,13 +319,15 @@ const App: React.FC = () => {
                       }}
                       className={`flex flex-col items-start group transition-transform active:scale-95`}
                     >
-                      <h3 className={`font-black uppercase italic flex items-center gap-1 transition-colors ${isActive ? 'text-lime-600 text-lg' : 'text-slate-400 text-xs group-hover:text-lime-500'}`}>
+                      <h3 className={`font-black uppercase italic flex items-center gap-1 transition-colors ${isActive ? 'text-lime-600 text-lg' : isViewing ? 'text-blue-600 text-sm' : 'text-slate-400 text-xs group-hover:text-lime-500'}`}>
                         Round {round.number}
                         <ExternalLink size={isActive ? 14 : 10} className="opacity-40 group-hover:opacity-100" />
                       </h3>
-                      {!isActive && <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest group-hover:text-lime-400">Jump to Play</span>}
+                      <span className={`text-[7px] font-black uppercase tracking-widest ${isViewing ? 'text-blue-400' : 'text-slate-300 group-hover:text-lime-400'}`}>
+                        {isViewing ? 'Viewing Now' : 'Jump to Play'}
+                      </span>
                     </button>
-                    {isActive && <span className="bg-lime-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse uppercase">Active</span>}
+                    {isActive && <span className="bg-lime-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse uppercase tracking-widest">ACTIVE</span>}
                   </div>
                   
                   <div className="space-y-4">
