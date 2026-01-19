@@ -32,7 +32,7 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- DERIVED STATE: TRUE ACTIVE ROUND ---
-  // The "True Active Round" is the first round that isn't fully completed.
+  // Calculates the first round that has at least one match not marked as completed.
   const trueActiveRoundIndex = useMemo(() => {
     const idx = rounds.findIndex(r => r.matches.some(m => !m.completed));
     return idx === -1 && rounds.length > 0 ? rounds.length - 1 : idx;
@@ -201,7 +201,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 mt-6">
-        {/* --- SETUP VIEW --- */}
+        {/* --- SETUP --- */}
         {view === 'setup' && (
           <div className="max-w-2xl mx-auto space-y-6">
             <Card className="p-6">
@@ -236,7 +236,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- PLAY VIEW --- */}
+        {/* --- PLAY --- */}
         {view === 'play' && rounds[currentRoundIndex] && (
           <div key={`round-${currentRoundIndex}`} className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border shadow-md flex items-center justify-between">
@@ -293,21 +293,18 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- SCHEDULE VIEW --- */}
+        {/* --- SCHEDULE --- */}
         {view === 'summary' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in-95">
             {rounds.map((round, rIdx) => {
               const isActive = rIdx === trueActiveRoundIndex;
-              const isViewing = rIdx === currentRoundIndex;
               return (
                 <Card 
                   key={rIdx} 
                   className={`p-4 transition-all duration-300 ${
                     isActive 
                       ? 'ring-4 ring-lime-500 ring-offset-4 scale-[1.02] shadow-2xl bg-white dark:bg-slate-900 z-10' 
-                      : isViewing 
-                        ? 'border-2 border-blue-400 shadow-md bg-white dark:bg-slate-900 opacity-100'
-                        : 'opacity-60 grayscale-[0.2]'
+                      : 'opacity-60 grayscale-[0.2]'
                   }`}
                 >
                   <div className="flex justify-between items-start mb-4">
@@ -319,12 +316,12 @@ const App: React.FC = () => {
                       }}
                       className={`flex flex-col items-start group transition-transform active:scale-95`}
                     >
-                      <h3 className={`font-black uppercase italic flex items-center gap-1 transition-colors ${isActive ? 'text-lime-600 text-lg' : isViewing ? 'text-blue-600 text-sm' : 'text-slate-400 text-xs group-hover:text-lime-500'}`}>
+                      <h3 className={`font-black uppercase italic flex items-center gap-1 transition-colors ${isActive ? 'text-lime-600 text-lg' : 'text-slate-400 text-xs group-hover:text-lime-500'}`}>
                         Round {round.number}
                         <ExternalLink size={isActive ? 14 : 10} className="opacity-40 group-hover:opacity-100" />
                       </h3>
-                      <span className={`text-[7px] font-black uppercase tracking-widest ${isViewing ? 'text-blue-400' : 'text-slate-300 group-hover:text-lime-400'}`}>
-                        {isViewing ? 'Viewing Now' : 'Jump to Play'}
+                      <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest group-hover:text-lime-400">
+                        {isActive ? 'Manage Active Round' : 'Jump to Play'}
                       </span>
                     </button>
                     {isActive && <span className="bg-lime-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse uppercase tracking-widest">ACTIVE</span>}
