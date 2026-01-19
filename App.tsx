@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Users, Trophy, Settings, Plus, Trash2, CheckCircle2, ChevronLeft, 
   PlayCircle, Edit2, LayoutGrid, Medal, RefreshCw, Play, Pause, 
-  RotateCcw, Info, X, AlertCircle, CheckCircle, Coffee, Upload, Download, ExternalLink, Scale, Hash, Bell
+  RotateCcw, Info, X, AlertCircle, CheckCircle, Coffee, Upload, Download, ExternalLink, Scale, Hash, Bell, ArrowUpDown
 } from 'lucide-react';
 import { Card } from './components/Card';
 import { PickleFlowLogo, DEFAULT_PLAYERS, ROUND_OPTIONS, DURATION_OPTIONS, COURT_OPTIONS } from './constants';
@@ -96,7 +96,6 @@ const App: React.FC = () => {
   const nameParts = newPlayerName.trim().split(/\s+/).filter(p => p.length > 0);
   const isValidName = nameParts.length >= 2 && nameParts[0].length > 1;
   
-  // AUTO-CAPITALIZATION LOGIC: Normalizes input to "First L."
   const formattedPreview = useMemo(() => {
     if (!isValidName) return '';
     const first = nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1).toLowerCase();
@@ -368,21 +367,70 @@ const App: React.FC = () => {
 
         {view === 'leaderboard' && (
           <div className="max-w-3xl mx-auto space-y-6 pb-24">
-            <div className="flex justify-between items-end">
-              <div><h2 className="text-4xl font-black italic uppercase tracking-tighter">Standings</h2><button onClick={() => setShowInfo(true)} className="mt-2 flex items-center gap-1.5 text-lime-600 font-black text-[10px] uppercase tracking-widest hover:underline"><Info size={14}/> How scoring works</button></div>
-              <div className="flex bg-slate-100 p-1 rounded-lg border">
-                <button onClick={() => setSortKey('avgPoints')} className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${sortKey === 'avgPoints' ? 'bg-white text-lime-600' : 'text-slate-400'}`}>Avg PPG</button>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+              <div>
+                <h2 className="text-4xl font-black italic uppercase tracking-tighter">Standings</h2>
+                <button onClick={() => setShowInfo(true)} className="mt-2 flex items-center gap-1.5 text-lime-600 font-black text-[10px] uppercase tracking-widest hover:underline">
+                  <Info size={14}/> How scoring works
+                </button>
+              </div>
+              
+              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 self-start">
+                <span className="text-[8px] font-black uppercase text-slate-400 px-2 flex items-center gap-1"><ArrowUpDown size={10}/> Sort By:</span>
+                <button 
+                  onClick={() => setSortKey('avgPoints')} 
+                  className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all uppercase tracking-tight ${sortKey === 'avgPoints' ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Avg PPG
+                </button>
+                <button 
+                  onClick={() => setSortKey('pointsFor')} 
+                  className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all uppercase tracking-tight ${sortKey === 'pointsFor' ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Total Pts
+                </button>
               </div>
             </div>
+
             <div className="grid grid-cols-1 gap-3">
               {leaderboard.map((stat, idx) => (
-                <div key={stat.id} className={`flex items-center gap-4 p-4 rounded-2xl bg-white border-2 transition-all ${idx < 4 ? 'border-lime-500 shadow-lg scale-[1.01]' : 'border-slate-100 opacity-90'}`}>
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl ${idx < 4 ? 'bg-lime-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{stat.displayRank}</div>
-                  <div className="flex-1 min-w-0"><h4 className="font-black text-lg uppercase truncate flex items-center gap-2">{stat.name} {idx < 4 && <Medal size={18} className="text-amber-400" />}</h4><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">W-L: {stat.wins}-{stat.losses} • G: {stat.gamesPlayed}</p></div>
-                  <div className="text-right"><div className="text-xl font-black text-lime-600">{stat.avgPoints.toFixed(1)}</div><p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Avg</p></div>
+                <div key={stat.id} className={`flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border-2 transition-all ${idx < 3 ? 'border-lime-500 shadow-lg scale-[1.01]' : 'border-slate-100 dark:border-slate-800 opacity-90'}`}>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl shrink-0 ${idx < 3 ? 'bg-lime-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+                    {stat.displayRank}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-black text-lg uppercase truncate flex items-center gap-2">
+                      {stat.name} 
+                      {idx === 0 && <Medal size={20} className="text-amber-400 shrink-0" />}
+                      {idx === 1 && <Medal size={20} className="text-slate-300 shrink-0" />}
+                      {idx === 2 && <Medal size={20} className="text-amber-600 shrink-0" />}
+                    </h4>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      Record: {stat.wins}-{stat.losses} • {stat.gamesPlayed} Games
+                    </p>
+                  </div>
+
+                  <div className="flex gap-4 md:gap-8 items-center shrink-0 pr-2">
+                    <div className={`text-right transition-opacity ${sortKey === 'pointsFor' ? 'opacity-100' : 'opacity-50'}`}>
+                      <div className="text-lg font-black text-slate-700 dark:text-slate-200 leading-none">{stat.pointsFor}</div>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Total</p>
+                    </div>
+                    <div className={`text-right transition-opacity ${sortKey === 'avgPoints' ? 'opacity-100' : 'opacity-50'}`}>
+                      <div className="text-lg font-black text-lime-600 leading-none">{stat.avgPoints.toFixed(1)}</div>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">PPG</p>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
+            
+            {leaderboard.length === 0 && (
+              <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border-2 border-dashed border-slate-200">
+                <Trophy size={48} className="mx-auto text-slate-200 mb-4" />
+                <p className="font-black uppercase text-slate-400 tracking-widest">Complete matches to see standings</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -411,20 +459,20 @@ const App: React.FC = () => {
                   <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100">
                     <div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs"><Hash size={16}/> Primary: PPG</div>
                     <p className="text-sm font-medium leading-relaxed text-slate-600">
-                      Players are ranked by <strong>Average Points Per Game (PPG)</strong>. This is your total points earned divided by matches played.
+                      <strong>Average Points Per Game (PPG)</strong> is the fairest metric for uneven play counts. It reflects performance per game played.
                     </p>
                   </div>
                   <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100">
-                    <div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs"><Scale size={16}/> Tie-Breaking</div>
+                    <div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs"><Trophy size={16}/> Total Points</div>
                     <p className="text-sm font-medium leading-relaxed text-slate-600">
-                      If PPG is exactly tied, the player with the most <strong>Total Wins</strong> takes the higher rank.
+                      <strong>Total Points For</strong> rewards aggressive play and higher match participation.
                     </p>
                   </div>
                 </div>
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b pb-2">Why PPG instead of Total Points?</h4>
                   <p className="text-sm text-slate-600 leading-relaxed italic">
-                    In a group with odd numbers or limited courts, some players will inevitably sit out more often than others. <strong>PPG</strong> ensures that a player is not penalized for resting, as their ranking is based on their performance <em>while on the court</em>.
+                    In a group with odd numbers, some players sit out more often. <strong>PPG</strong> ensures that a player is not penalized for resting, as their ranking is based on their efficiency <em>while on the court</em>.
                   </p>
                 </div>
                 <div className="bg-lime-600/5 p-5 rounded-2xl border border-lime-200/50">
