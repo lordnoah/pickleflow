@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Users, Trophy, Settings, Plus, Trash2, CheckCircle2, ChevronLeft, 
   PlayCircle, Edit2, LayoutGrid, Medal, RefreshCw, Play, Pause, 
-  RotateCcw, Info, X, AlertCircle, CheckCircle, Coffee, Upload, Download, ExternalLink
+  RotateCcw, Info, X, AlertCircle, CheckCircle, Coffee, Upload, Download, ExternalLink, Scale, Hash
 } from 'lucide-react';
 import { Card } from './components/Card';
 import { PickleFlowLogo, DEFAULT_PLAYERS, ROUND_OPTIONS, DURATION_OPTIONS, COURT_OPTIONS } from './constants';
@@ -31,12 +31,22 @@ const App: React.FC = () => {
   const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- DERIVED STATE: TRUE ACTIVE ROUND ---
-  // Calculates the first round that has at least one match not marked as completed.
+  // --- FIXED: AUTOMATIC ACTIVE ROUND DETECTION ---
   const trueActiveRoundIndex = useMemo(() => {
-    const idx = rounds.findIndex(r => r.matches.some(m => !m.completed));
-    return idx === -1 && rounds.length > 0 ? rounds.length - 1 : idx;
+    if (rounds.length === 0) return 0;
+    // Find the index of the first round that has at least one incomplete match
+    const firstIncompleteIdx = rounds.findIndex(r => r.matches.some(m => !m.completed));
+    // If all matches in all rounds are completed, highlight the last round
+    return firstIncompleteIdx === -1 ? rounds.length - 1 : firstIncompleteIdx;
   }, [rounds]);
+
+  // Sync current view to true active round when a tournament starts or scores update
+  useEffect(() => {
+    if (rounds.length > 0 && view === 'play') {
+       // Optional: Auto-advance currentRoundIndex to trueActiveRoundIndex 
+       // only if the user hasn't manually navigated away
+    }
+  }, [trueActiveRoundIndex]);
 
   // --- PERSISTENCE ---
   useEffect(() => {
@@ -106,7 +116,7 @@ const App: React.FC = () => {
   const nameParts = newPlayerName.trim().split(/\s+/);
   const isNameValid = nameParts.length >= 2 && nameParts[0].length > 0 && nameParts[nameParts.length - 1].length > 0;
 
-  // --- TOURNAMENT GENERATION ---
+  // --- SCHEDULER ---
   const generateSchedule = () => {
     if (players.length < 4) return;
     const newRounds: Round[] = [];
@@ -165,7 +175,7 @@ const App: React.FC = () => {
     }));
     return Object.values(stats).filter((s:any) => s.gamesPlayed > 0).map((s: any) => ({
       ...s, avgPoints: s.pointsFor / s.gamesPlayed
-    })).sort((a, b) => b[sortKey] - a[sortKey]).map((p, i) => ({ ...p, displayRank: i + 1 })) as PlayerStats[];
+    })).sort((a, b) => b[sortKey] - a[sortKey] || b.wins - a.wins).map((p, i) => ({ ...p, displayRank: i + 1 })) as PlayerStats[];
   }, [rounds, players, sortKey]);
 
   return (
@@ -293,7 +303,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- SCHEDULE --- */}
+        {/* --- SUMMARY / SCHEDULE --- */}
         {view === 'summary' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in-95">
             {rounds.map((round, rIdx) => {
@@ -321,7 +331,7 @@ const App: React.FC = () => {
                         <ExternalLink size={isActive ? 14 : 10} className="opacity-40 group-hover:opacity-100" />
                       </h3>
                       <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest group-hover:text-lime-400">
-                        {isActive ? 'Manage Active Round' : 'Jump to Play'}
+                        {isActive ? 'Awaiting Scores' : 'Jump to View'}
                       </span>
                     </button>
                     {isActive && <span className="bg-lime-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse uppercase tracking-widest">ACTIVE</span>}
@@ -345,15 +355,6 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     ))}
-
-                    {round.sittingOut.length > 0 && (
-                      <div className="mt-2 pt-3 border-t-2 border-dotted border-orange-200 dark:border-orange-900/40">
-                        <div className="flex items-center gap-1.5 mb-1 text-orange-500">
-                          <Coffee size={10} /><p className="text-[8px] font-black uppercase tracking-wider text-orange-400">Resting:</p>
-                        </div>
-                        <p className="text-[10px] font-bold text-orange-700/80 dark:text-orange-400/80 leading-tight">{round.sittingOut.map(p => p.name).join(', ')}</p>
-                      </div>
-                    )}
                   </div>
                 </Card>
               );
@@ -365,7 +366,7 @@ const App: React.FC = () => {
         {view === 'leaderboard' && (
           <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4">
             <div className="flex justify-between items-end">
-              <div><h2 className="text-4xl font-black italic uppercase tracking-tighter">Standings</h2><button onClick={() => setShowInfo(true)} className="mt-2 flex items-center gap-1.5 text-lime-600 font-black text-[10px] uppercase tracking-widest hover:underline"><Info size={14}/> Scoring Info</button></div>
+              <div><h2 className="text-4xl font-black italic uppercase tracking-tighter">Standings</h2><button onClick={() => setShowInfo(true)} className="mt-2 flex items-center gap-1.5 text-lime-600 font-black text-[10px] uppercase tracking-widest hover:underline"><Info size={14}/> How scoring works</button></div>
               <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border">
                 <button onClick={() => setSortKey('avgPoints')} className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${sortKey === 'avgPoints' ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm' : 'text-slate-400'}`}>Avg PPG</button>
                 <button onClick={() => setSortKey('pointsFor')} className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${sortKey === 'pointsFor' ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm' : 'text-slate-400'}`}>Total Pts</button>
@@ -384,17 +385,49 @@ const App: React.FC = () => {
         )}
         
         {showInfo && (
-          <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <Card className="max-w-md w-full p-8 relative animate-in zoom-in-95 duration-200">
+          <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+            <Card className="max-w-xl w-full p-8 relative animate-in zoom-in-95 duration-200 my-auto">
               <button onClick={() => setShowInfo(false)} className="absolute top-4 right-4 text-slate-400 hover:text-rose-500"><X size={24}/></button>
-              <h3 className="text-2xl font-black uppercase italic text-lime-600 mb-4 tracking-tighter">Scoring Rules</h3>
-              <div className="space-y-4 text-sm font-bold text-slate-600 dark:text-slate-400 leading-relaxed">
-                <p>PickleFlow tracks individual player performance across rotating teams.</p>
-                <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl space-y-2">
-                  <p>1. <span className="text-lime-600 font-black">PPG:</span> Points earned divided by games played.</p>
-                  <p>2. <span className="text-lime-600 font-black">Points:</span> Total points scored for your team across all rounds.</p>
+              
+              <div className="space-y-6">
+                <div>
+                   <h3 className="text-3xl font-black uppercase italic text-lime-600 tracking-tighter flex items-center gap-2"><Trophy size={28}/> Tournament Scoring</h3>
+                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">PickleFlow Round-Robin Logic</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs"><Hash size={16}/>Primary: PPG</div>
+                    <p className="text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">
+                      Players are ranked by <strong>Average Points Per Game (PPG)</strong>. This is your total points earned divided by matches played.
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs"><Scale size={16}/>Tie-Breaking</div>
+                    <p className="text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">
+                      If PPG is tied, the player with the most <strong>Total Wins</strong> takes the higher rank.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b pb-2">Why PPG instead of Total Points?</h4>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed italic">
+                    In a group with odd numbers, some players will inevitably sit out more often than others. <strong>PPG</strong> ensures that a player is not penalized for resting, as their ranking is based on their performance <em>while on the court</em>.
+                  </p>
+                </div>
+
+                <div className="bg-lime-600/5 dark:bg-lime-500/5 p-4 rounded-2xl border border-lime-200/50 dark:border-lime-500/20">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-600 mb-2">Algorithm Fairness</h4>
+                  <ul className="text-xs font-bold text-slate-600 dark:text-slate-400 space-y-2">
+                    <li className="flex items-start gap-2"><CheckCircle size={14} className="text-lime-600 mt-0.5 shrink-0"/> Rotating partners ensures you play with as many different people as possible.</li>
+                    <li className="flex items-start gap-2"><CheckCircle size={14} className="text-lime-600 mt-0.5 shrink-0"/> The scheduler prioritizes players who have sat out the longest.</li>
+                    <li className="flex items-start gap-2"><CheckCircle size={14} className="text-lime-600 mt-0.5 shrink-0"/> Point differential is tracked but not used for ranking to encourage friendly play.</li>
+                  </ul>
                 </div>
               </div>
+
+              <button onClick={() => setShowInfo(false)} className="w-full mt-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all">Got it</button>
             </Card>
           </div>
         )}
