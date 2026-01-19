@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Users, Trophy, Settings, Plus, Trash2, CheckCircle2, ChevronLeft, 
   PlayCircle, Edit2, LayoutGrid, Medal, Activity, Download, Upload, 
-  RefreshCw, Play, Pause, RotateCcw, Info, X, Check, AlertCircle
+  RefreshCw, Play, Pause, RotateCcw, Info, X, Check, AlertCircle, CheckCircle
 } from 'lucide-react';
 import { Card } from './components/Card';
 import { PickleFlowLogo, DEFAULT_PLAYERS, ROUND_OPTIONS, DURATION_OPTIONS, COURT_OPTIONS } from './constants';
@@ -21,7 +21,6 @@ const App: React.FC = () => {
   const [numRounds, setNumRounds] = useState(() => parseInt(localStorage.getItem('pf_num_rounds') || '8'));
   const [selectedDuration, setSelectedDuration] = useState(() => parseInt(localStorage.getItem('pf_duration') || '15'));
   
-  // Timer & UI Utility
   const [timerActive, setTimerActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(selectedDuration * 60);
   const [targetTime, setTargetTime] = useState<number | null>(null);
@@ -62,24 +61,23 @@ const App: React.FC = () => {
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
-  // --- PLAYER VALIDATION LOGIC ---
-  const handleAddPlayer = () => {
-    const rawName = newPlayerName.trim();
-    if (!rawName) return;
+  // --- STRICT VALIDATION LOGIC ---
+  const nameParts = newPlayerName.trim().split(/\s+/);
+  const isNameValid = nameParts.length >= 2 && nameParts[0].length > 0 && nameParts[nameParts.length - 1].length > 0;
 
-    // Format: "John Smith" -> "John S."
-    const parts = rawName.split(/\s+/);
-    let formattedName = parts[0];
-    if (parts.length > 1) {
-      const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
-      formattedName = `${parts[0]} ${lastInitial}.`;
-    }
+  const handleAddPlayer = () => {
+    if (!isNameValid) return;
+
+    // Final formatting: "John Smith" -> "John S."
+    const first = nameParts[0];
+    const lastInitial = nameParts[nameParts.length - 1].charAt(0).toUpperCase();
+    const formattedName = `${first} ${lastInitial}.`;
 
     setPlayers([...players, { id: Date.now(), name: formattedName }]);
     setNewPlayerName('');
   };
 
-  // --- SCHEDULER ---
+  // --- SCHEDULER & SCORE UPDATES ---
   const generateSchedule = () => {
     if (players.length < 4) return;
     const newRounds: Round[] = [];
@@ -147,7 +145,7 @@ const App: React.FC = () => {
         <div className="max-w-2xl mx-auto flex flex-col gap-4">
           <div className="flex justify-between items-center">
             <PickleFlowLogo />
-            <button onClick={() => confirm("Reset all data?") && (localStorage.clear() || window.location.reload())} className="flex flex-col items-center text-slate-400 hover:text-rose-500 transition-colors">
+            <button onClick={() => confirm("Reset session?") && (localStorage.clear() || window.location.reload())} className="flex flex-col items-center text-slate-400 hover:text-rose-500 transition-colors">
               <RefreshCw size={18} /><span className="text-[8px] font-black uppercase mt-1">Wipe</span>
             </button>
           </div>
@@ -164,7 +162,6 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 mt-6">
-        {/* --- SETUP VIEW --- */}
         {view === 'setup' && (
           <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4">
             <Card className="p-6">
@@ -177,19 +174,28 @@ const App: React.FC = () => {
                     value={newPlayerName} 
                     onChange={(e) => setNewPlayerName(e.target.value)} 
                     onKeyDown={(e) => e.key === 'Enter' && handleAddPlayer()} 
-                    placeholder="Full Name" 
-                    className="flex-1 bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-4 outline-none font-bold focus:ring-2 ring-lime-500/20" 
+                    placeholder="Full Name (e.g. John Smith)" 
+                    className={`flex-1 bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-4 outline-none font-bold border-2 transition-all ${newPlayerName.length > 0 ? (isNameValid ? 'border-lime-500/50' : 'border-orange-500/50') : 'border-transparent'}`} 
                   />
                   <button 
                     onClick={handleAddPlayer} 
-                    className="bg-lime-600 text-white px-7 rounded-xl active:scale-95 transition-transform shadow-lg shadow-lime-500/20"
+                    disabled={!isNameValid}
+                    className={`px-7 rounded-xl transition-all shadow-lg ${isNameValid ? 'bg-lime-600 text-white shadow-lime-500/20 active:scale-95' : 'bg-slate-200 text-slate-400 grayscale cursor-not-allowed'}`}
                   >
                     <Plus size={32} />
                   </button>
                 </div>
+                
+                {/* DYNAMIC HELPER TEXT */}
                 <div className="flex items-center gap-2 px-1">
-                  <AlertCircle size={12} className="text-slate-400" />
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Format: First name + Last initial (e.g. John S.)</p>
+                  {isNameValid ? (
+                    <CheckCircle size={12} className="text-lime-500" />
+                  ) : (
+                    <AlertCircle size={12} className={newPlayerName.length > 0 ? "text-orange-500" : "text-slate-400"} />
+                  )}
+                  <p className={`text-[10px] font-black uppercase tracking-tight transition-colors ${newPlayerName.length > 0 ? (isNameValid ? 'text-lime-600' : 'text-orange-500') : 'text-slate-400'}`}>
+                    {isNameValid ? "Ready to add!" : "First & Last name required"}
+                  </p>
                 </div>
               </div>
 
@@ -342,7 +348,6 @@ const App: React.FC = () => {
           </div>
         )}
         
-        {/* --- SCORING MODAL --- */}
         {showInfo && (
           <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
             <Card className="max-w-md w-full p-8 relative animate-in zoom-in-95 duration-200">
@@ -354,7 +359,6 @@ const App: React.FC = () => {
                   <p>1. <span className="text-lime-600 font-black">PPG (Points Per Game):</span> Total Points ÷ Games Played. This is the primary rank stat.</p>
                   <p>2. <span className="text-lime-600 font-black">Total Points:</span> The cumulative sum of every point you earned.</p>
                 </div>
-                <p className="text-[10px] uppercase tracking-widest text-slate-400">Ties are broken by total point differential.</p>
               </div>
             </Card>
           </div>
