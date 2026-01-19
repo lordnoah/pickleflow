@@ -98,7 +98,6 @@ const App: React.FC = () => {
   const nameParts = newPlayerName.trim().split(/\s+/);
   const isBasicValid = nameParts.length >= 2 && nameParts[0].length > 0 && nameParts[nameParts.length - 1].length > 0;
   
-  // Calculate formatted name to check for duplicates
   const potentialFormattedName = useMemo(() => {
     if (!isBasicValid) return '';
     const first = nameParts[0];
@@ -303,7 +302,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- SCHEDULE --- */}
+        {/* --- SCHEDULE (Restored "Sitting Out" sections) --- */}
         {view === 'summary' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in-95">
             {rounds.map((round, rIdx) => {
@@ -355,6 +354,18 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     ))}
+
+                    {/* RESTORED SITTING OUT SECTION */}
+                    {round.sittingOut.length > 0 && (
+                      <div className="mt-2 pt-3 border-t-2 border-dotted border-orange-200 dark:border-orange-900/40">
+                        <div className="flex items-center gap-1.5 mb-1 text-orange-500">
+                          <Coffee size={10} /><p className="text-[8px] font-black uppercase tracking-wider text-orange-400">Resting:</p>
+                        </div>
+                        <p className="text-[10px] font-bold text-orange-700/80 dark:text-orange-400/80 leading-tight">
+                          {round.sittingOut.map(p => p.name).join(', ')}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </Card>
               );
