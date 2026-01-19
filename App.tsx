@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Users, Trophy, Settings, Plus, Trash2, CheckCircle2, ChevronLeft, 
-  PlayCircle, Edit2, LayoutGrid, Medal, Activity, Download, Upload, 
-  RefreshCw, Play, Pause, RotateCcw, Info, X, Check, AlertCircle, CheckCircle, Coffee
+  PlayCircle, Edit2, LayoutGrid, Medal, RefreshCw, Play, Pause, 
+  RotateCcw, Info, X, AlertCircle, CheckCircle, Coffee, Upload, Download
 } from 'lucide-react';
 import { Card } from './components/Card';
 import { PickleFlowLogo, DEFAULT_PLAYERS, ROUND_OPTIONS, DURATION_OPTIONS, COURT_OPTIONS } from './constants';
@@ -61,7 +61,7 @@ const App: React.FC = () => {
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
-  // --- JSON IMPORT/EXPORT ---
+  // --- JSON DATA MGMT ---
   const exportData = () => {
     const data: TournamentSession = { players, rounds, currentRoundIndex, courtCount, numRounds, selectedDuration };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -87,7 +87,7 @@ const App: React.FC = () => {
     reader.readAsText(file);
   };
 
-  // --- STRICT VALIDATION LOGIC ---
+  // --- PLAYER VALIDATION ---
   const nameParts = newPlayerName.trim().split(/\s+/);
   const isNameValid = nameParts.length >= 2 && nameParts[0].length > 0 && nameParts[nameParts.length - 1].length > 0;
 
@@ -163,8 +163,8 @@ const App: React.FC = () => {
   }, [rounds, players, sortKey]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-12 font-sans selection:bg-lime-200">
-      <header className="sticky top-0 z-[60] bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b px-4 py-3">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-12 font-sans selection:bg-lime-200 text-slate-900 dark:text-slate-100">
+      <header className="sticky top-0 z-[60] bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b px-4 py-3 shadow-sm">
         <div className="max-w-2xl mx-auto flex flex-col gap-4">
           <div className="flex justify-between items-center">
             <PickleFlowLogo />
@@ -175,7 +175,7 @@ const App: React.FC = () => {
               <button onClick={exportData} className="flex flex-col items-center text-slate-400 hover:text-lime-600 transition-colors">
                 <Download size={18} /><span className="text-[8px] font-black uppercase mt-1">Export</span>
               </button>
-              <button onClick={() => confirm("Reset session?") && (localStorage.clear() || window.location.reload())} className="flex flex-col items-center text-slate-400 hover:text-rose-500 transition-colors">
+              <button onClick={() => confirm("Reset all data?") && (localStorage.clear() || window.location.reload())} className="flex flex-col items-center text-slate-400 hover:text-rose-500 transition-colors">
                 <RefreshCw size={18} /><span className="text-[8px] font-black uppercase mt-1">Wipe</span>
               </button>
             </div>
@@ -195,6 +195,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 mt-6">
+        {/* --- SETUP --- */}
         {view === 'setup' && (
           <div className="max-w-2xl mx-auto space-y-6">
             <Card className="p-6">
@@ -229,15 +230,16 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* --- PLAY --- */}
         {view === 'play' && rounds[currentRoundIndex] && (
           <div className="max-w-2xl mx-auto space-y-6">
              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border shadow-md flex items-center justify-between">
-                <button onClick={() => setCurrentRoundIndex(Math.max(0, currentRoundIndex - 1))} className="p-2 text-slate-400"><ChevronLeft size={32}/></button>
+                <button onClick={() => setCurrentRoundIndex(Math.max(0, currentRoundIndex - 1))} disabled={currentRoundIndex === 0} className="p-2 text-slate-400 disabled:opacity-20"><ChevronLeft size={32}/></button>
                 <div className="text-center">
                   <p className="text-2xl font-black uppercase italic">Round {currentRoundIndex + 1}</p>
                   <div className="flex items-center justify-center gap-3 mt-1">
                     <button onClick={() => setTimeLeft(selectedDuration * 60)} className="text-slate-400"><RotateCcw size={14}/></button>
-                    <span className="font-mono font-black text-lime-600 tracking-widest">{formatTime(timeLeft)}</span>
+                    <span className="font-mono font-black text-lime-600 tracking-widest text-lg">{formatTime(timeLeft)}</span>
                     <button onClick={toggleTimer} className="text-slate-400">{timerActive ? <Pause size={14} fill="currentColor"/> : <Play size={14} fill="currentColor"/>}</button>
                   </div>
                 </div>
@@ -248,25 +250,24 @@ const App: React.FC = () => {
                 {rounds[currentRoundIndex].matches.map((match) => (
                   <Card key={match.id} className={`${match.completed ? 'opacity-60 grayscale-[0.5]' : 'border-l-8 border-lime-500 shadow-lg'}`}>
                     <div className="p-4 space-y-4">
-                      <div className="flex-1 space-y-4">
+                      <div className="space-y-4">
                         <div className="flex justify-between items-center bg-lime-50/50 dark:bg-lime-900/10 p-3 rounded-xl border border-lime-100 dark:border-lime-900/30">
                           <div className="flex-1 font-black uppercase text-sm leading-tight text-lime-800 dark:text-lime-400">{match.team1[0]?.name}<br/>{match.team1[1]?.name}</div>
                           <input type="tel" value={match.score1} onChange={(e) => updateScore(match.id, 1, e.target.value)} onFocus={(e) => e.target.select()} className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl text-center text-3xl font-black border-2 border-lime-200 focus:border-lime-500 outline-none" />
                         </div>
-                        <div className="relative py-1"><div className="absolute inset-0 flex items-center"><div className="w-full border-t-2 border-dashed border-slate-200 dark:border-slate-800" /></div><div className="relative flex justify-center"><span className="bg-white dark:bg-slate-900 px-4 text-[10px] font-black text-slate-400 italic uppercase border-2 border-slate-100 dark:border-slate-800 rounded-full">Versus</span></div></div>
+                        <div className="relative py-1 flex items-center"><div className="w-full border-t-2 border-dashed border-slate-200 dark:border-slate-800" /><span className="absolute left-1/2 -translate-x-1/2 bg-white dark:bg-slate-900 px-4 text-[10px] font-black text-slate-400 italic uppercase border-2 border-slate-100 dark:border-slate-800 rounded-full">VS</span></div>
                         <div className="flex justify-between items-center bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100 dark:border-blue-900/30">
                           <div className="flex-1 font-black uppercase text-sm leading-tight text-blue-800 dark:text-blue-400">{match.team2[0]?.name}<br/>{match.team2[1]?.name}</div>
                           <input type="tel" value={match.score2} onChange={(e) => updateScore(match.id, 2, e.target.value)} onFocus={(e) => e.target.select()} className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl text-center text-3xl font-black border-2 border-blue-200 focus:border-blue-500 outline-none" />
                         </div>
                       </div>
-                      <button onClick={() => setRounds(prev => prev.map(r => ({...r, matches: r.matches.map(m => m.id === match.id ? {...m, completed: !m.completed} : m)})))} className={`w-full py-4 rounded-xl font-black text-xs uppercase flex items-center justify-center gap-2 active:scale-95 transition-all ${match.completed ? 'bg-slate-100 text-slate-500' : 'bg-lime-600 text-white shadow-lg shadow-lime-500/20'}`}>
+                      <button onClick={() => setRounds(prev => prev.map(r => ({...r, matches: r.matches.map(m => m.id === match.id ? {...m, completed: !m.completed} : m)})))} className={`w-full py-4 rounded-xl font-black text-xs uppercase flex items-center justify-center gap-2 transition-all ${match.completed ? 'bg-slate-100 text-slate-500' : 'bg-lime-600 text-white shadow-lg shadow-lime-500/20'}`}>
                         {match.completed ? <><Edit2 size={18}/> Edit Scores</> : <><CheckCircle2 size={18}/> Add Final Score</>}
                       </button>
                     </div>
                   </Card>
                 ))}
 
-                {/* SITTING OUT - PLAY TAB */}
                 {rounds[currentRoundIndex].sittingOut.length > 0 && (
                   <div className="bg-orange-50 dark:bg-orange-950/20 border-2 border-dashed border-orange-200 dark:border-orange-900/50 p-6 rounded-3xl">
                     <div className="flex items-center gap-2 mb-4 text-orange-600 dark:text-orange-400">
@@ -283,28 +284,41 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* --- SCHEDULE --- */}
         {view === 'summary' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in-95">
             {rounds.map((round, rIdx) => {
               const isActive = rIdx === currentRoundIndex;
               return (
-                <Card key={rIdx} className={`p-4 transition-all ${isActive ? 'ring-4 ring-lime-500 scale-[1.02] shadow-2xl z-10' : 'opacity-60'}`}>
+                <Card key={rIdx} className={`p-4 transition-all duration-500 ${isActive ? 'ring-4 ring-lime-500 ring-offset-4 scale-[1.02] shadow-2xl bg-white dark:bg-slate-900 z-10' : 'opacity-60 grayscale-[0.2]'}`}>
                   <div className="flex justify-between items-center mb-4">
                     <h3 className={`font-black uppercase italic ${isActive ? 'text-lime-600 text-lg' : 'text-slate-400 text-xs'}`}>Round {round.number}</h3>
-                    {isActive && <span className="bg-lime-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse">ACTIVE</span>}
+                    {isActive && <span className="bg-lime-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse uppercase">Active</span>}
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {round.matches.map((m, mIdx) => (
-                      <div key={mIdx} className="p-2 rounded-lg border border-slate-100 bg-slate-50/50">
-                        <div className="flex justify-between text-[8px] font-bold text-slate-400 mb-1 uppercase"><span>Court {m.court}</span>{m.completed && <span className="text-lime-600">Final: {m.score1}-{m.score2}</span>}</div>
-                        <p className="text-[10px] font-black truncate">{m.team1.map(p => p.name).join(' & ')} vs {m.team2.map(p => p.name).join(' & ')}</p>
+                      <div key={mIdx} className="p-3 rounded-xl border border-slate-100 bg-slate-50/50 dark:bg-slate-800/50 dark:border-slate-700">
+                        <div className="flex justify-between text-[8px] font-bold text-slate-400 mb-2 uppercase tracking-tighter">
+                          <span>Court {m.court}</span>
+                          {m.completed && <span className="text-lime-600 font-black">Final: {m.score1}-{m.score2}</span>}
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-black uppercase leading-none">{m.team1.map(p => p.name).join(' & ')}</p>
+                          <div className="flex items-center gap-2 py-1">
+                            <div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-700" />
+                            <span className="text-[7px] font-black text-slate-400 uppercase">Versus</span>
+                            <div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-700" />
+                          </div>
+                          <p className="text-[11px] font-black uppercase leading-none">{m.team2.map(p => p.name).join(' & ')}</p>
+                        </div>
                       </div>
                     ))}
-                    {/* SITTING OUT - SUMMARY TAB */}
                     {round.sittingOut.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-dashed border-orange-200">
-                        <p className="text-[8px] font-black text-orange-500 uppercase mb-1">Sitting Out:</p>
-                        <p className="text-[10px] font-bold text-orange-700/70">{round.sittingOut.map(p => p.name).join(', ')}</p>
+                      <div className="mt-2 pt-3 border-t-2 border-dotted border-orange-200 dark:border-orange-900/40">
+                        <div className="flex items-center gap-1.5 mb-1 text-orange-500">
+                          <Coffee size={10} /><p className="text-[8px] font-black uppercase tracking-wider">Sitting Out:</p>
+                        </div>
+                        <p className="text-[10px] font-bold text-orange-700/80 dark:text-orange-400/80 leading-tight">{round.sittingOut.map(p => p.name).join(', ')}</p>
                       </div>
                     )}
                   </div>
@@ -314,18 +328,22 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* --- LEADERBOARD --- */}
         {view === 'leaderboard' && (
           <div className="max-w-3xl mx-auto space-y-6">
             <div className="flex justify-between items-end">
-              <div><h2 className="text-4xl font-black italic uppercase tracking-tighter">Standings</h2><button onClick={() => setShowInfo(true)} className="mt-2 flex items-center gap-1.5 text-lime-600 font-black text-[10px] uppercase tracking-widest hover:underline"><Info size={14}/> How is this calculated?</button></div>
-              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border"><button onClick={() => setSortKey('avgPoints')} className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${sortKey === 'avgPoints' ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm' : 'text-slate-400'}`}>PPG Avg</button><button onClick={() => setSortKey('pointsFor')} className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${sortKey === 'pointsFor' ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm' : 'text-slate-400'}`}>Total Pts</button></div>
+              <div><h2 className="text-4xl font-black italic uppercase tracking-tighter">Standings</h2><button onClick={() => setShowInfo(true)} className="mt-2 flex items-center gap-1.5 text-lime-600 font-black text-[10px] uppercase tracking-widest hover:underline"><Info size={14}/> Scoring Info</button></div>
+              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border">
+                <button onClick={() => setSortKey('avgPoints')} className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${sortKey === 'avgPoints' ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm' : 'text-slate-400'}`}>Avg PPG</button>
+                <button onClick={() => setSortKey('pointsFor')} className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${sortKey === 'pointsFor' ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm' : 'text-slate-400'}`}>Total Pts</button>
+              </div>
             </div>
             <div className="grid grid-cols-1 gap-3 pb-24">
               {leaderboard.map((stat, idx) => (
-                <div key={stat.id} className={`flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border-2 transition-all ${idx < 4 ? 'border-lime-500 shadow-lg scale-[1.01]' : 'border-slate-100 opacity-90'}`}>
+                <div key={stat.id} className={`flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border-2 transition-all ${idx < 4 ? 'border-lime-500 shadow-lg scale-[1.01]' : 'border-slate-100 dark:border-slate-800 opacity-90'}`}>
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl ${idx < 4 ? 'bg-lime-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>{stat.displayRank}</div>
-                  <div className="flex-1 min-w-0"><h4 className="font-black text-lg uppercase truncate flex items-center gap-2">{stat.name} {idx < 4 && <Medal size={18} className="text-amber-400" />}</h4><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Wins: {stat.wins} • Games: {stat.gamesPlayed}</p></div>
-                  <div className="flex gap-6 text-right"><div className={sortKey === 'pointsFor' ? 'opacity-100' : 'opacity-40'}><div className="text-xl font-black">{stat.pointsFor}</div><p className="text-[8px] font-black text-slate-400 uppercase">Total</p></div><div className={sortKey === 'avgPoints' ? 'opacity-100' : 'opacity-40'}><div className="text-xl font-black text-lime-600">{stat.avgPoints.toFixed(1)}</div><p className="text-[8px] font-black text-slate-400 uppercase">PPG</p></div></div>
+                  <div className="flex-1 min-w-0"><h4 className="font-black text-lg uppercase truncate flex items-center gap-2">{stat.name} {idx < 4 && <Medal size={18} className="text-amber-400" />}</h4><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">W-L: {stat.wins}-{stat.losses} • G: {stat.gamesPlayed}</p></div>
+                  <div className="flex gap-6 text-right"><div className={sortKey === 'pointsFor' ? 'opacity-100' : 'opacity-40'}><div className="text-xl font-black">{stat.pointsFor}</div><p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Total</p></div><div className={sortKey === 'avgPoints' ? 'opacity-100' : 'opacity-40'}><div className="text-xl font-black text-lime-600">{stat.avgPoints.toFixed(1)}</div><p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Avg</p></div></div>
                 </div>
               ))}
             </div>
@@ -336,12 +354,12 @@ const App: React.FC = () => {
           <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
             <Card className="max-w-md w-full p-8 relative animate-in zoom-in-95 duration-200">
               <button onClick={() => setShowInfo(false)} className="absolute top-4 right-4 text-slate-400 hover:text-rose-500"><X size={24}/></button>
-              <h3 className="text-2xl font-black uppercase italic text-lime-600 mb-4">Scoring Logic</h3>
+              <h3 className="text-2xl font-black uppercase italic text-lime-600 mb-4 tracking-tighter">Scoring Rules</h3>
               <div className="space-y-4 text-sm font-bold text-slate-600 dark:text-slate-400 leading-relaxed">
-                <p>PickleFlow ranks players individually based on their performance across all rounds.</p>
+                <p>PickleFlow tracks individual player performance across rotating teams.</p>
                 <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl space-y-2">
-                  <p>1. <span className="text-lime-600 font-black">PPG (Points Per Game):</span> Total Points ÷ Games Played. This is the primary rank stat.</p>
-                  <p>2. <span className="text-lime-600 font-black">Total Points:</span> The cumulative sum of every point you earned.</p>
+                  <p>1. <span className="text-lime-600 font-black">PPG:</span> Points earned divided by games played.</p>
+                  <p>2. <span className="text-lime-600 font-black">Points:</span> Total points scored for your team across all rounds.</p>
                 </div>
               </div>
             </Card>
