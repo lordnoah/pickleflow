@@ -92,6 +92,53 @@ const App: React.FC = () => {
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
+  // --- EXPORT LOGIC ---
+  const handleExport = () => {
+    const data: TournamentSession = {
+      players,
+      rounds,
+      currentRoundIndex,
+      courtCount,
+      numRounds,
+      selectedDuration,
+      view,
+      timestamp: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `pickleflow-session-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // --- IMPORT LOGIC ---
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string);
+        if (data.players) setPlayers(data.players);
+        if (data.rounds) setRounds(data.rounds);
+        if (data.courtCount) setCourtCount(data.courtCount);
+        if (data.numRounds) setNumRounds(data.numRounds);
+        if (data.selectedDuration) setSelectedDuration(data.selectedDuration);
+        if (data.view) setView(data.view);
+        if (typeof data.currentRoundIndex === 'number') setCurrentRoundIndex(data.currentRoundIndex);
+      } catch (err) {
+        alert("Invalid tournament file.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
   // --- VALIDATION HELPERS ---
   const nameParts = newPlayerName.trim().split(/\s+/).filter(p => p.length > 0);
   const isValidName = nameParts.length >= 2 && nameParts[0].length > 1;
@@ -181,12 +228,18 @@ const App: React.FC = () => {
           <div className="flex justify-between items-center">
             <PickleFlowLogo />
             <div className="flex gap-4">
-              <button onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center text-slate-400 hover:text-lime-600 transition-colors"><Upload size={18} /><span className="text-[8px] font-black uppercase mt-1">Import</span></button>
-              <button onClick={() => {}} className="flex flex-col items-center text-slate-400 hover:text-lime-600 transition-colors"><Download size={18} /><span className="text-[8px] font-black uppercase mt-1">Export</span></button>
+              <button onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center text-slate-400 hover:text-lime-600 transition-colors">
+                <Upload size={18} />
+                <span className="text-[8px] font-black uppercase mt-1">Import</span>
+              </button>
+              <button onClick={handleExport} className="flex flex-col items-center text-slate-400 hover:text-lime-600 transition-colors">
+                <Download size={18} />
+                <span className="text-[8px] font-black uppercase mt-1">Export</span>
+              </button>
               <button onClick={() => confirm("Reset all data?") && (localStorage.clear() || window.location.reload())} className="flex flex-col items-center text-slate-400 hover:text-rose-500 transition-colors"><RefreshCw size={18} /><span className="text-[8px] font-black uppercase mt-1">Wipe</span></button>
             </div>
           </div>
-          <input type="file" ref={fileInputRef} className="hidden" accept=".json" />
+          <input type="file" ref={fileInputRef} onChange={handleImport} className="hidden" accept=".json" />
           
           {rounds.length > 0 && (
             <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
@@ -201,6 +254,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 mt-6">
+        {/* SETUP VIEW */}
         {view === 'setup' && (
           <div className="max-w-2xl mx-auto space-y-6">
             <Card className="p-6">
@@ -221,21 +275,13 @@ const App: React.FC = () => {
                     }`} 
                   />
                   {newPlayerName && (
-                    <button 
-                      onClick={() => setNewPlayerName('')} 
-                      className="absolute right-[88px] top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-rose-500 transition-colors"
-                    >
-                      <X size={20} />
-                    </button>
+                    <button onClick={() => setNewPlayerName('')} className="absolute right-[88px] top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-rose-500 transition-colors"><X size={20} /></button>
                   )}
                   {isValidName && !isDuplicate && (
-                    <button onClick={handleAddPlayer} className="px-7 rounded-xl bg-lime-600 text-white shadow-lg animate-in zoom-in-75 duration-200">
-                      <Plus size={32} />
-                    </button>
+                    <button onClick={handleAddPlayer} className="px-7 rounded-xl bg-lime-600 text-white shadow-lg animate-in zoom-in-75 duration-200"><Plus size={32} /></button>
                   )}
                 </div>
                 
-                {/* VALIDATION MESSAGES */}
                 {newPlayerName.trim() !== '' && (
                   <div className="flex flex-col gap-1 px-1">
                     {isDuplicate ? (
@@ -275,6 +321,7 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* PLAY VIEW */}
         {view === 'play' && rounds[currentRoundIndex] && (
           <div className="max-w-2xl mx-auto space-y-6 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-300">
              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border shadow-md flex items-center justify-between">
@@ -314,123 +361,37 @@ const App: React.FC = () => {
                     </div>
                   </Card>
                 ))}
-
-                {rounds[currentRoundIndex].sittingOut.length > 0 && (
-                  <div className="bg-orange-50 dark:bg-orange-950/20 border-2 border-dashed border-orange-200 dark:border-orange-900/50 p-6 rounded-3xl">
-                    <div className="flex items-center gap-2 mb-4 text-orange-600 dark:text-orange-400"><Coffee size={20} /><h3 className="font-black uppercase italic tracking-tighter">Sitting Out</h3></div>
-                    <div className="flex flex-wrap gap-2 overflow-visible">
-                      {rounds[currentRoundIndex].sittingOut.map(p => (
-                        <span key={p.id} className="bg-white dark:bg-slate-900 px-4 py-2 rounded-xl border border-orange-100 font-black text-sm uppercase text-orange-700 dark:text-orange-300 shadow-sm whitespace-nowrap">{p.name}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
              </div>
           </div>
         )}
 
-        {view === 'summary' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pb-24 animate-in fade-in zoom-in-95">
-            {rounds.map((round, rIdx) => {
-              const isActive = rIdx === trueActiveRoundIndex;
-              return (
-                <Card key={rIdx} className={`p-4 transition-all duration-300 ${isActive ? 'ring-4 ring-lime-500 scale-[1.02] shadow-2xl bg-white z-10' : 'opacity-60 grayscale-[0.2]'}`}>
-                  <div className="flex justify-between items-start mb-4">
-                    <button onClick={() => { setCurrentRoundIndex(rIdx); setView('play'); }} className="flex flex-col items-start group">
-                      <h3 className={`font-black uppercase italic flex items-center gap-1 ${isActive ? 'text-lime-600 text-lg' : 'text-slate-400 text-xs'}`}>Round {round.number} <ExternalLink size={isActive ? 14 : 10} /></h3>
-                    </button>
-                    {isActive && <span className="bg-lime-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse uppercase tracking-widest">ACTIVE</span>}
-                  </div>
-                  <div className="space-y-4">
-                    {round.matches.map((m, mIdx) => (
-                      <div key={mIdx} className={`p-3 rounded-xl border ${isActive ? 'border-lime-100 bg-lime-50/30' : 'border-slate-100'}`}>
-                        <div className="flex justify-between text-[8px] font-bold text-slate-400 mb-2 uppercase"><span>Court {m.court}</span>{m.completed && <span className="text-lime-600 font-black">Final: {m.score1}-{m.score2}</span>}</div>
-                        <div className="space-y-1"><p className="text-[11px] font-black uppercase leading-none">{m.team1.map(p => p.name).join(' & ')}</p><div className="flex items-center gap-2 py-1"><div className="h-[1px] flex-1 bg-slate-200" /><span className="text-[7px] font-black text-slate-400 uppercase">VS</span><div className="h-[1px] flex-1 bg-slate-200" /></div><p className="text-[11px] font-black uppercase leading-none">{m.team2.map(p => p.name).join(' & ')}</p></div>
-                      </div>
-                    ))}
-                    {round.sittingOut.length > 0 && (
-                      <div className="mt-2 pt-3 border-t-2 border-dotted border-orange-200">
-                        <div className="flex items-center gap-1.5 mb-1 text-orange-500"><Coffee size={10} /><p className="text-[8px] font-black uppercase text-orange-400">Resting:</p></div>
-                        <div className="flex flex-wrap gap-1">
-                          {round.sittingOut.map(p => (
-                            <span key={p.id} className="text-[10px] font-bold text-orange-700/80 px-1">{p.name}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-
+        {/* LEADERBOARD VIEW */}
         {view === 'leaderboard' && (
           <div className="max-w-3xl mx-auto space-y-6 pb-24">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-              <div>
-                <h2 className="text-4xl font-black italic uppercase tracking-tighter">Standings</h2>
-                <button onClick={() => setShowInfo(true)} className="mt-2 flex items-center gap-1.5 text-lime-600 font-black text-[10px] uppercase tracking-widest hover:underline">
-                  <Info size={14}/> How scoring works
-                </button>
-              </div>
-              
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 self-start">
+              <div><h2 className="text-4xl font-black italic uppercase tracking-tighter">Standings</h2><button onClick={() => setShowInfo(true)} className="mt-2 flex items-center gap-1.5 text-lime-600 font-black text-[10px] uppercase tracking-widest hover:underline"><Info size={14}/> How scoring works</button></div>
+              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border self-start">
                 <span className="text-[8px] font-black uppercase text-slate-400 px-2 flex items-center gap-1"><ArrowUpDown size={10}/> Sort By:</span>
-                <button 
-                  onClick={() => setSortKey('avgPoints')} 
-                  className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all uppercase tracking-tight ${sortKey === 'avgPoints' ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                  Avg PPG
-                </button>
-                <button 
-                  onClick={() => setSortKey('pointsFor')} 
-                  className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all uppercase tracking-tight ${sortKey === 'pointsFor' ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                  Total Pts
-                </button>
+                <button onClick={() => setSortKey('avgPoints')} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${sortKey === 'avgPoints' ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm' : 'text-slate-500'}`}>Avg PPG</button>
+                <button onClick={() => setSortKey('pointsFor')} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${sortKey === 'pointsFor' ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm' : 'text-slate-500'}`}>Total Pts</button>
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-3">
               {leaderboard.map((stat, idx) => (
                 <div key={stat.id} className={`flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border-2 transition-all ${idx < 3 ? 'border-lime-500 shadow-lg scale-[1.01]' : 'border-slate-100 dark:border-slate-800 opacity-90'}`}>
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl shrink-0 ${idx < 3 ? 'bg-lime-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
-                    {stat.displayRank}
-                  </div>
-                  
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl shrink-0 ${idx < 3 ? 'bg-lime-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>{stat.displayRank}</div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-black text-lg uppercase truncate flex items-center gap-2">
-                      {stat.name} 
-                      {idx === 0 && <Medal size={20} className="text-amber-400 shrink-0" />}
-                      {idx === 1 && <Medal size={20} className="text-slate-300 shrink-0" />}
-                      {idx === 2 && <Medal size={20} className="text-amber-600 shrink-0" />}
-                    </h4>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      Record: {stat.wins}-{stat.losses} • {stat.gamesPlayed} Games
-                    </p>
+                    <h4 className="font-black text-lg uppercase truncate flex items-center gap-2">{stat.name} {idx === 0 && <Medal size={20} className="text-amber-400" />}</h4>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">W-L: {stat.wins}-{stat.losses} • {stat.gamesPlayed} Games</p>
                   </div>
-
                   <div className="flex gap-4 md:gap-8 items-center shrink-0 pr-2">
-                    <div className={`text-right transition-opacity ${sortKey === 'pointsFor' ? 'opacity-100' : 'opacity-50'}`}>
-                      <div className="text-lg font-black text-slate-700 dark:text-slate-200 leading-none">{stat.pointsFor}</div>
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Total</p>
-                    </div>
-                    <div className={`text-right transition-opacity ${sortKey === 'avgPoints' ? 'opacity-100' : 'opacity-50'}`}>
-                      <div className="text-lg font-black text-lime-600 leading-none">{stat.avgPoints.toFixed(1)}</div>
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">PPG</p>
-                    </div>
+                    <div className={`text-right ${sortKey === 'pointsFor' ? 'opacity-100' : 'opacity-50'}`}><div className="text-lg font-black">{stat.pointsFor}</div><p className="text-[8px] font-black text-slate-400 uppercase">Total</p></div>
+                    <div className={`text-right ${sortKey === 'avgPoints' ? 'opacity-100' : 'opacity-50'}`}><div className="text-lg font-black text-lime-600">{stat.avgPoints.toFixed(1)}</div><p className="text-[8px] font-black text-slate-400 uppercase">PPG</p></div>
                   </div>
                 </div>
               ))}
             </div>
-            
-            {leaderboard.length === 0 && (
-              <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border-2 border-dashed border-slate-200">
-                <Trophy size={48} className="mx-auto text-slate-200 mb-4" />
-                <p className="font-black uppercase text-slate-400 tracking-widest">Complete matches to see standings</p>
-              </div>
-            )}
           </div>
         )}
 
@@ -441,50 +402,6 @@ const App: React.FC = () => {
                 <h2 className="text-5xl font-black italic uppercase text-white tracking-tighter">Time's Up!</h2>
                 <button onClick={() => setShowTimeUp(false)} className="px-12 py-6 bg-white text-rose-600 rounded-[2rem] font-black text-2xl uppercase italic tracking-tighter shadow-2xl active:scale-95 transition-all">Clear Alert</button>
              </div>
-          </div>
-        )}
-
-        {showInfo && (
-          <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-            <Card className="max-w-xl w-full p-8 relative animate-in zoom-in-95 duration-200 my-auto">
-              <button onClick={() => setShowInfo(false)} className="absolute top-4 right-4 text-slate-400 hover:text-rose-500 transition-colors"><X size={24}/></button>
-              <div className="space-y-6">
-                <div>
-                   <h3 className="text-3xl font-black uppercase italic text-lime-600 tracking-tighter flex items-center gap-2">
-                     <Trophy size={28}/> Tournament Scoring
-                   </h3>
-                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">PickleFlow Round-Robin Official Logic</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100">
-                    <div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs"><Hash size={16}/> Primary: PPG</div>
-                    <p className="text-sm font-medium leading-relaxed text-slate-600">
-                      <strong>Average Points Per Game (PPG)</strong> is the fairest metric for uneven play counts. It reflects performance per game played.
-                    </p>
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100">
-                    <div className="flex items-center gap-2 text-lime-600 mb-2 font-black uppercase text-xs"><Trophy size={16}/> Total Points</div>
-                    <p className="text-sm font-medium leading-relaxed text-slate-600">
-                      <strong>Total Points For</strong> rewards aggressive play and higher match participation.
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b pb-2">Why PPG instead of Total Points?</h4>
-                  <p className="text-sm text-slate-600 leading-relaxed italic">
-                    In a group with odd numbers, some players sit out more often. <strong>PPG</strong> ensures that a player is not penalized for resting, as their ranking is based on their efficiency <em>while on the court</em>.
-                  </p>
-                </div>
-                <div className="bg-lime-600/5 p-5 rounded-2xl border border-lime-200/50">
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-600 mb-3">Fairness Guarantee</h4>
-                  <ul className="text-xs font-bold text-slate-600 space-y-3">
-                    <li className="flex items-start gap-2"><CheckCircle size={14} className="text-lime-600 mt-0.5 shrink-0"/> <strong>Rotating Partners:</strong> variety prioritized.</li>
-                    <li className="flex items-start gap-2"><CheckCircle size={14} className="text-lime-600 mt-0.5 shrink-0"/> <strong>Rest Equity:</strong> Sitters prioritized for the next round.</li>
-                  </ul>
-                </div>
-              </div>
-              <button onClick={() => setShowInfo(false)} className="w-full mt-8 py-4 bg-slate-900 text-white rounded-xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95">Return to Standings</button>
-            </Card>
           </div>
         )}
       </main>
