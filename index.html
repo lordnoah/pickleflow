@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="theme-color" content="#020617">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="PickleFlow">
@@ -18,6 +18,10 @@
       overscroll-behavior-y: contain; 
       -webkit-tap-highlight-color: transparent;
     }
+    /* Added to ensure the body background stays dark even while loading */
+    body {
+      background-color: #020617;
+    }
     input[type='number']::-webkit-inner-spin-button,
     input[type='number']::-webkit-outer-spin-button {
       -webkit-appearance: none;
@@ -27,7 +31,7 @@
       width: 4px;
     }
     .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
+      background: #475569; /* Darker scrollbar for dark mode */
       border-radius: 10px;
     }
     .view-transition {
@@ -51,7 +55,7 @@
 }
 </script>
 </head>
-<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+<body class="bg-slate-950 text-slate-100">
   <div id="root"></div>
   <script type="module" src="./index.tsx"></script>
 </body>
