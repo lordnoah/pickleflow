@@ -13,12 +13,13 @@
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2166/2166810.png">
   
   <script src="https://cdn.tailwindcss.com"></script>
-
   <script>
     tailwind.config = {
       darkMode: 'class',
     }
   </script>
+
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
@@ -27,7 +28,7 @@
       font-family: 'Inter', sans-serif; 
       overscroll-behavior-y: contain; 
       -webkit-tap-highlight-color: transparent;
-      background-color: #020617; /* Keeps background dark during load */
+      background-color: #020617;
     }
 
     input[type='number']::-webkit-inner-spin-button,
@@ -58,9 +59,9 @@
   <script type="importmap">
   {
     "imports": {
-      "react": "https://esm.sh/react@^19.2.3",
-      "react-dom/client": "https://esm.sh/react-dom@^19.2.3/client",
-      "lucide-react": "https://esm.sh/lucide-react@0.294.0"
+      "react": "https://esm.sh/react@19.0.0",
+      "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+      "lucide-react": "https://esm.sh/lucide-react@0.474.0"
     }
   }
   </script>
@@ -69,6 +70,6 @@
 <body class="bg-slate-950 text-slate-100">
   <div id="root"></div>
   
-  <script type="text/babel" data-type="module" src="./index.js"></script>
+  <script type="text/babel" data-type="module" src="./index.tsx"></script>
 </body>
 </html>
