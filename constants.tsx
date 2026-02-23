@@ -7,8 +7,8 @@ export const DEFAULT_PLAYERS = [
   { id: 5, name: 'Casey H' }, { id: 6, name: 'Riley F' },
 ];
 
-export const ROUND_OPTIONS = [4, 5, 6, 8, 10, 12];
-export const DURATION_OPTIONS = [10, 15, 20];
+export const ROUND_OPTIONS = [4, 5, 6, 7, 8, 9, 10, 11, 12];
+export const DURATION_OPTIONS = [10, 12, 15, 20];
 export const COURT_OPTIONS = [1, 2, 3, 4, 5, 6];
 
 export const PickleFlowLogo: React.FC<{ className?: string }> = ({ className = "" }) => (
