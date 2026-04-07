@@ -1,4 +1,3 @@
-
 const CACHE_NAME = 'pickleflow-v2';
 
 self.addEventListener('install', (event) => {
@@ -11,9 +10,9 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           return caches.delete(cacheName);
-        })
+        }),
       );
-    })
+    }),
   );
 });
 
