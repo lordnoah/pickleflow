@@ -37,7 +37,7 @@ import {
   COURT_OPTIONS,
 } from './constants';
 import { Player, Match, Round, PlayerStats, View, TournamentSession } from './types';
-import { generateSchedule, calculateLeaderboard } from './lib/tournament';
+import { GAME_ENGINES, getEngine } from './lib/games/index';
 
 const App: React.FC = () => {
   // --- CORE STATE ---
@@ -62,6 +62,9 @@ const App: React.FC = () => {
   );
   const [selectedDuration, setSelectedDuration] = useState(() =>
     parseInt(localStorage.getItem('pf_duration') || '15'),
+  );
+  const [gameType, setGameType] = useState<string>(
+    () => localStorage.getItem('pf_game_type') || 'standard',
   );
 
   const [timerActive, setTimerActive] = useState(false);
@@ -92,7 +95,9 @@ const App: React.FC = () => {
       gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 1);
       osc.start();
       osc.stop(context.currentTime + 1);
-    } catch (e) { /* ignore audio error */ }
+    } catch (e) {
+      /* ignore audio error */
+    }
   };
 
   const trueActiveRoundIndex = useMemo(() => {
@@ -110,7 +115,8 @@ const App: React.FC = () => {
     localStorage.setItem('pf_courts', courtCount.toString());
     localStorage.setItem('pf_num_rounds', numRounds.toString());
     localStorage.setItem('pf_duration', selectedDuration.toString());
-  }, [view, players, rounds, currentRoundIndex, courtCount, numRounds, selectedDuration]);
+    localStorage.setItem('pf_game_type', gameType);
+  }, [view, players, rounds, currentRoundIndex, courtCount, numRounds, selectedDuration, gameType]);
 
   // --- TIMER ---
   useEffect(() => {
@@ -210,8 +216,10 @@ const App: React.FC = () => {
   };
 
   // --- SCHEDULER ---
+  const engine = getEngine(gameType);
+
   const handleGenerateSchedule = () => {
-    const newRounds = generateSchedule(players, numRounds, courtCount);
+    const newRounds = engine.generateInitialRounds(players, numRounds, courtCount);
     if (newRounds.length > 0) {
       setRounds(newRounds);
       setCurrentRoundIndex(0);
@@ -219,6 +227,21 @@ const App: React.FC = () => {
       setView('play');
     }
   };
+
+  const handleGenerateNextRound = () => {
+    const nextRound = engine.generateNextRound(players, rounds, courtCount);
+    if (nextRound) {
+      const updated = [...rounds, nextRound];
+      setRounds(updated);
+      setCurrentRoundIndex(updated.length - 1);
+      setTimeLeft(selectedDuration * 60);
+    }
+  };
+
+  const currentRoundComplete =
+    rounds[currentRoundIndex]?.matches.every((m) => m.completed) ?? false;
+  const isLastRound = currentRoundIndex === rounds.length - 1;
+  const kqPlayerCountValid = players.length === courtCount * 4;
 
   const updateScore = (matchId: string, team: 1 | 2, value: string) => {
     const val = value.replace(/\D/g, '');
@@ -237,8 +260,8 @@ const App: React.FC = () => {
   };
 
   const leaderboard = useMemo<PlayerStats[]>(() => {
-    return calculateLeaderboard(players, rounds, sortKey);
-  }, [rounds, players, sortKey]);
+    return engine.calculateLeaderboard(players, rounds, sortKey);
+  }, [rounds, players, sortKey, engine]);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-12 font-sans text-slate-900 dark:text-slate-100 overflow-x-hidden">
@@ -347,21 +370,73 @@ const App: React.FC = () => {
                 ))}
               </div>
             </Card>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border text-center">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase">Rounds</h3>
-                <select
-                  value={numRounds}
-                  onChange={(e) => setNumRounds(parseInt(e.target.value))}
-                  className="w-full bg-transparent font-black text-xl text-lime-600"
-                >
-                  {ROUND_OPTIONS.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
+            {/* Game Type Selector */}
+            <div className="bg-white dark:bg-slate-800 rounded-xl border overflow-hidden">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase px-4 pt-4 pb-2">
+                Game Type
+              </h3>
+              <div className="flex flex-col">
+                {GAME_ENGINES.map((eng) => (
+                  <button
+                    key={eng.id}
+                    onClick={() => setGameType(eng.id)}
+                    className={`flex items-start gap-3 px-4 py-3 text-left transition-all border-t first:border-t-0 ${
+                      gameType === eng.id
+                        ? 'bg-lime-50 dark:bg-lime-900/20 border-lime-200 dark:border-lime-800'
+                        : 'border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                    }`}
+                  >
+                    <div
+                      className={`w-4 h-4 rounded-full border-2 mt-0.5 shrink-0 flex items-center justify-center ${
+                        gameType === eng.id ? 'border-lime-600' : 'border-slate-300'
+                      }`}
+                    >
+                      {gameType === eng.id && <div className="w-2 h-2 rounded-full bg-lime-600" />}
+                    </div>
+                    <div>
+                      <p
+                        className={`font-black text-sm ${gameType === eng.id ? 'text-lime-700 dark:text-lime-400' : 'text-slate-700 dark:text-slate-200'}`}
+                      >
+                        {eng.name}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{eng.description}</p>
+                    </div>
+                  </button>
+                ))}
               </div>
+            </div>
+
+            {/* K&Q player count warning */}
+            {gameType === 'king_and_queen' && !kqPlayerCountValid && (
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-sm">
+                <p className="font-black text-amber-700 dark:text-amber-400 uppercase text-xs mb-1">
+                  Player Count Required
+                </p>
+                <p className="text-amber-600 dark:text-amber-500 text-xs leading-relaxed">
+                  King &amp; Queen requires exactly <strong>{courtCount * 4} players</strong> for{' '}
+                  {courtCount} courts ({courtCount} × 4). You currently have{' '}
+                  <strong>{players.length}</strong>.
+                </p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-4">
+              {gameType === 'standard' && (
+                <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border text-center">
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase">Rounds</h3>
+                  <select
+                    value={numRounds}
+                    onChange={(e) => setNumRounds(parseInt(e.target.value))}
+                    className="w-full bg-transparent font-black text-xl text-lime-600"
+                  >
+                    {ROUND_OPTIONS.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border text-center">
                 <h3 className="text-[10px] font-black text-slate-400 uppercase">Min / Round</h3>
                 <select
@@ -396,8 +471,14 @@ const App: React.FC = () => {
             </div>
             <button
               onClick={handleGenerateSchedule}
-              disabled={players.length < 4}
-              className={`w-full py-6 rounded-2xl font-black text-2xl uppercase italic tracking-tighter shadow-xl transition-all ${players.length < 4 ? 'bg-slate-200 text-slate-400' : 'bg-lime-600 text-white'}`}
+              disabled={
+                players.length < 4 || (gameType === 'king_and_queen' && !kqPlayerCountValid)
+              }
+              className={`w-full py-6 rounded-2xl font-black text-2xl uppercase italic tracking-tighter shadow-xl transition-all ${
+                players.length < 4 || (gameType === 'king_and_queen' && !kqPlayerCountValid)
+                  ? 'bg-slate-200 text-slate-400'
+                  : 'bg-lime-600 text-white'
+              }`}
             >
               Start Tournament
             </button>
@@ -455,6 +536,26 @@ const App: React.FC = () => {
                 <ChevronLeft size={32} />
               </button>
             </div>
+            {/* K&Q: Generate Next Round button when current round is done */}
+            {engine.isDynamic && currentRoundComplete && isLastRound && (
+              <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-4 rounded-2xl flex items-center justify-between shadow-lg">
+                <div>
+                  <p className="text-white font-black uppercase text-xs tracking-widest">
+                    Round {currentRoundIndex + 1} Complete!
+                  </p>
+                  <p className="text-amber-100 text-[10px] mt-0.5">
+                    Courts reshuffled — winners move up, losers move down.
+                  </p>
+                </div>
+                <button
+                  onClick={handleGenerateNextRound}
+                  className="bg-white text-amber-600 font-black text-xs uppercase px-5 py-3 rounded-xl shadow active:scale-95 transition-all whitespace-nowrap"
+                >
+                  Next Round →
+                </button>
+              </div>
+            )}
+            <div className="invisible h-0"></div>
 
             <div className="space-y-6">
               {rounds[currentRoundIndex].matches.map((match) => (
