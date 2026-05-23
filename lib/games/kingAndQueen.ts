@@ -36,6 +36,15 @@ function updatePartnerHistory(history: Record<string, number>, t1: Player[], t2:
   history[key(t2[0], t2[1])] = (history[key(t2[0], t2[1])] || 0) + 1;
 }
 
+function shuffle<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 /**
  * Generates Round 1 by randomly assigning players to courts,
  * then choosing the best pairing per court to split prior partners.
@@ -46,7 +55,7 @@ function generateFirstRound(
   partnerHistory: Record<string, number>,
 ): Round {
   // Shuffle players randomly
-  const shuffled = [...players].sort(() => Math.random() - 0.5);
+  const shuffled = shuffle(players);
   const matches: Match[] = [];
 
   for (let c = 0; c < courtCount; c++) {

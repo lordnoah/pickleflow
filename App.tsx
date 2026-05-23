@@ -30,6 +30,7 @@ import {
   Crown,
 } from 'lucide-react';
 import { Card } from './components/Card';
+import { Timer } from './components/Timer';
 import {
   PickleFlowLogo,
   DEFAULT_PLAYERS,
@@ -41,6 +42,13 @@ import { Player, Match, Round, PlayerStats, View, TournamentSession } from './ty
 import { GAME_ENGINES, getEngine } from './lib/games/index';
 
 const App: React.FC = () => {
+  const handleWipe = () => {
+    if (confirm('Reset all data?')) {
+      localStorage.clear();
+      window.location.reload();
+    }
+  };
+
   // --- CORE STATE ---
   const [view, setView] = useState<View>(
     () => (localStorage.getItem('pf_view') as View) || 'setup',
@@ -68,38 +76,11 @@ const App: React.FC = () => {
     () => localStorage.getItem('pf_game_type') || 'standard',
   );
 
-  const [timerActive, setTimerActive] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(selectedDuration * 60);
-  const [targetTime, setTargetTime] = useState<number | null>(null);
   const [showInfo, setShowInfo] = useState(false);
-  const [showTimeUp, setShowTimeUp] = useState(false);
   const [sortKey, setSortKey] = useState<'avgPoints' | 'pointsFor'>('avgPoints');
   const [newPlayerName, setNewPlayerName] = useState('');
 
-  const timerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // --- AUDIO ---
-  const playAlert = () => {
-    try {
-      const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextClass) return;
-      const context = new AudioContextClass();
-      const osc = context.createOscillator();
-      const gain = context.createGain();
-      osc.connect(gain);
-      gain.connect(context.destination);
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, context.currentTime);
-      gain.gain.setValueAtTime(0, context.currentTime);
-      gain.gain.linearRampToValueAtTime(0.5, context.currentTime + 0.1);
-      gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 1);
-      osc.start();
-      osc.stop(context.currentTime + 1);
-    } catch (e) {
-      /* ignore audio error */
-    }
-  };
 
   const trueActiveRoundIndex = useMemo(() => {
     if (rounds.length === 0) return 0;
@@ -119,36 +100,6 @@ const App: React.FC = () => {
     localStorage.setItem('pf_game_type', gameType);
   }, [view, players, rounds, currentRoundIndex, courtCount, numRounds, selectedDuration, gameType]);
 
-  // --- TIMER ---
-  useEffect(() => {
-    if (timerActive && targetTime) {
-      timerRef.current = window.setInterval(() => {
-        const remaining = Math.max(0, Math.round((targetTime - Date.now()) / 1000));
-        setTimeLeft(remaining);
-        if (remaining === 0) {
-          setTimerActive(false);
-          setShowTimeUp(true);
-          playAlert();
-        }
-      }, 500);
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [timerActive, targetTime]);
-
-  const toggleTimer = () => {
-    if (timerActive) {
-      setTimerActive(false);
-      setTargetTime(null);
-    } else {
-      setTargetTime(Date.now() + timeLeft * 1000);
-      setTimerActive(true);
-    }
-  };
-
-  const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
-
   // --- EXPORT/IMPORT ---
   const handleExport = () => {
     const data: TournamentSession = {
@@ -159,6 +110,7 @@ const App: React.FC = () => {
       numRounds,
       selectedDuration,
       view,
+      gameType,
       timestamp: new Date().toISOString(),
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -184,6 +136,7 @@ const App: React.FC = () => {
         if (data.selectedDuration) setSelectedDuration(data.selectedDuration);
         if (typeof data.currentRoundIndex === 'number')
           setCurrentRoundIndex(data.currentRoundIndex);
+        if (data.gameType) setGameType(data.gameType);
         setView(data.view || 'play');
       } catch (err) {
         alert('Invalid file format.');
@@ -216,6 +169,57 @@ const App: React.FC = () => {
     setNewPlayerName('');
   };
 
+  const handleRenamePlayer = (id: number, newName: string) => {
+    setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, name: newName } : p)));
+    setRounds((prev) =>
+      prev.map((r) => ({
+        ...r,
+        matches: r.matches.map((m) => ({
+          ...m,
+          team1: m.team1.map((p) => (p.id === id ? { ...p, name: newName } : p)),
+          team2: m.team2.map((p) => (p.id === id ? { ...p, name: newName } : p)),
+        })),
+        sittingOut: r.sittingOut.map((p) => (p.id === id ? { ...p, name: newName } : p)),
+      })),
+    );
+  };
+
+  const handleDeletePlayer = (id: number) => {
+    const deletedPlayer = players.find((p) => p.id === id);
+    if (rounds.length > 0) {
+      setPlayers((prev) =>
+        prev.map((p) => (p.id === id ? { id: -id, name: `[SUB] ${p.name}` } : p))
+      );
+      setRounds((prev) =>
+        prev.map((round, rIdx) => {
+          const isFutureOrCurrent = rIdx >= currentRoundIndex;
+          return {
+            ...round,
+            matches: round.matches.map((m) => {
+              if (isFutureOrCurrent && !m.completed) {
+                return {
+                  ...m,
+                  team1: m.team1.map((p) =>
+                    p.id === id ? { id: -id, name: `[SUB] ${deletedPlayer?.name || ''}` } : p
+                  ),
+                  team2: m.team2.map((p) =>
+                    p.id === id ? { id: -id, name: `[SUB] ${deletedPlayer?.name || ''}` } : p
+                  ),
+                };
+              }
+              return m;
+            }),
+            sittingOut: round.sittingOut.map((p) =>
+              p.id === id ? { id: -id, name: `[SUB] ${deletedPlayer?.name || ''}` } : p
+            ),
+          };
+        }),
+      );
+    } else {
+      setPlayers((prev) => prev.filter((p) => p.id !== id));
+    }
+  };
+
   // --- SCHEDULER ---
   const engine = getEngine(gameType);
 
@@ -224,7 +228,6 @@ const App: React.FC = () => {
     if (newRounds.length > 0) {
       setRounds(newRounds);
       setCurrentRoundIndex(0);
-      setTimeLeft(selectedDuration * 60);
       setView('play');
     }
   };
@@ -235,7 +238,6 @@ const App: React.FC = () => {
       const updated = [...rounds, nextRound];
       setRounds(updated);
       setCurrentRoundIndex(updated.length - 1);
-      setTimeLeft(selectedDuration * 60);
     }
   };
 
@@ -286,9 +288,7 @@ const App: React.FC = () => {
                 <span className="text-[8px] font-black uppercase mt-1">Export</span>
               </button>
               <button
-                onClick={() =>
-                  confirm('Reset all data?') && (localStorage.clear() || window.location.reload())
-                }
+                onClick={handleWipe}
                 className="flex flex-col items-center text-slate-400 hover:text-rose-500 transition-colors"
               >
                 <RefreshCw size={18} />
@@ -358,11 +358,17 @@ const App: React.FC = () => {
                     key={p.id}
                     className="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border"
                   >
-                    <span className="font-black">
-                      {idx + 1}. {p.name}
-                    </span>
+                    <div className="flex items-center gap-2 flex-1 mr-4">
+                      <span className="font-black text-slate-400 text-sm">{idx + 1}.</span>
+                      <input
+                        type="text"
+                        value={p.name}
+                        onChange={(e) => handleRenamePlayer(p.id, e.target.value)}
+                        className="bg-transparent font-black outline-none w-full border-b border-transparent focus:border-lime-500 transition-colors py-0.5"
+                      />
+                    </div>
                     <button
-                      onClick={() => setPlayers(players.filter((pl) => pl.id !== p.id))}
+                      onClick={() => handleDeletePlayer(p.id)}
                       className="text-slate-300 hover:text-rose-500 p-2"
                     >
                       <Trash2 size={20} />
@@ -444,7 +450,6 @@ const App: React.FC = () => {
                   value={selectedDuration}
                   onChange={(e) => {
                     setSelectedDuration(parseInt(e.target.value));
-                    setTimeLeft(parseInt(e.target.value) * 60);
                   }}
                   className="w-full bg-transparent font-black text-xl text-lime-600"
                 >
@@ -507,24 +512,7 @@ const App: React.FC = () => {
                     </span>
                   )}
                 </div>
-                <div className="flex items-center justify-center gap-3 mt-1">
-                  <button
-                    onClick={() => setTimeLeft(selectedDuration * 60)}
-                    className="text-slate-400"
-                  >
-                    <RotateCcw size={14} />
-                  </button>
-                  <span className="font-mono font-black text-lime-600 tracking-widest text-lg">
-                    {formatTime(timeLeft)}
-                  </span>
-                  <button onClick={toggleTimer} className="text-slate-400">
-                    {timerActive ? (
-                      <Pause size={14} fill="currentColor" />
-                    ) : (
-                      <Play size={14} fill="currentColor" />
-                    )}
-                  </button>
-                </div>
+                <Timer key={`${currentRoundIndex}-${selectedDuration}`} duration={selectedDuration} />
               </div>
               <button
                 onClick={() =>
@@ -893,22 +881,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {showTimeUp && (
-          <div className="fixed inset-0 z-[200] bg-rose-600/95 backdrop-blur-xl flex items-center justify-center p-4">
-            <div className="text-center space-y-8 animate-in zoom-in-95">
-              <Bell size={100} className="text-white mx-auto animate-bounce" />
-              <h2 className="text-5xl font-black italic uppercase text-white tracking-tighter">
-                Time's Up!
-              </h2>
-              <button
-                onClick={() => setShowTimeUp(false)}
-                className="px-12 py-6 bg-white text-rose-600 rounded-[2rem] font-black text-2xl uppercase italic tracking-tighter shadow-2xl transition-all"
-              >
-                Clear Alert
-              </button>
-            </div>
-          </div>
-        )}
+
       </main>
     </div>
   );

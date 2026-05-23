@@ -1,6 +1,15 @@
 import { Player, Match, Round, PlayerStats } from '../../types';
 import { GameEngine } from './types';
 
+function shuffle<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 function generateSchedule(players: Player[], numRounds: number, courtCount: number): Round[] {
   if (players.length < 4) return [];
 
@@ -18,9 +27,9 @@ function generateSchedule(players: Player[], numRounds: number, courtCount: numb
   });
 
   for (let r = 0; r < numRounds; r++) {
-    const sorted = [...players].sort(
-      (a, b) => playCount[a.id] - playCount[b.id] || Math.random() - 0.5,
-    );
+    const shuffled = shuffle(players);
+    const sorted = shuffled.sort((a, b) => playCount[a.id] - playCount[b.id]);
+
     const slots = Math.min(players.length - (players.length % 4), courtCount * 4);
     const active = sorted.slice(0, slots);
     const available = [...active];

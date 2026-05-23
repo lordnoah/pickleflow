@@ -25,10 +25,26 @@ export interface PlayerStats {
   number: number;
   wins: number;
   losses: number;
+  ties: number;
+  gamesPlayed: number;
   pointsFor: number;
   pointsAgainst: number;
   diff: number;
+  avgPoints: number;
   displayRank: number;
 }
 
-export type View = 'setup' | 'play' | 'leaderboard';
+export type View = 'setup' | 'play' | 'leaderboard' | 'summary';
+
+export interface TournamentSession {
+  players: Player[];
+  rounds: Round[];
+  currentRoundIndex: number;
+  courtCount: number;
+  numRounds: number;
+  selectedDuration: number;
+  view: View;
+  gameType: string;
+  timestamp: string;
+}
+

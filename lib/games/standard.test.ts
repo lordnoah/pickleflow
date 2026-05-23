@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { generateSchedule, calculateLeaderboard } from './tournament';
-import { Player, Round } from '../types';
+import { standardEngine } from './standard';
+import { Player, Round } from '../../types';
 
-describe('Tournament Logic', () => {
+describe('Standard Engine Logic', () => {
   const mockPlayers: Player[] = [
     { id: 1, name: 'P1' },
     { id: 2, name: 'P2' },
@@ -11,14 +11,14 @@ describe('Tournament Logic', () => {
     { id: 5, name: 'P5' },
   ];
 
-  it('generateSchedule should return empty array if less than 4 players', () => {
-    const rounds = generateSchedule(mockPlayers.slice(0, 3), 3, 2);
+  it('generateInitialRounds should return empty array if less than 4 players', () => {
+    const rounds = standardEngine.generateInitialRounds(mockPlayers.slice(0, 3), 3, 2);
     expect(rounds.length).toBe(0);
   });
 
-  it('generateSchedule should create correct number of rounds and matches', () => {
+  it('generateInitialRounds should create correct number of rounds and matches', () => {
     // 5 players, 1 court -> 1 match per round (4 players playing, 1 sitting out)
-    const rounds = generateSchedule(mockPlayers, 3, 1);
+    const rounds = standardEngine.generateInitialRounds(mockPlayers, 3, 1);
     expect(rounds.length).toBe(3);
 
     rounds.forEach((round, rIdx) => {
@@ -54,7 +54,7 @@ describe('Tournament Logic', () => {
       },
     ];
 
-    const leaderboard = calculateLeaderboard(mockPlayers, mockRounds, 'avgPoints');
+    const leaderboard = standardEngine.calculateLeaderboard(mockPlayers, mockRounds, 'avgPoints');
 
     // P5 should not be in leaderboard because they played 0 games
     expect(leaderboard.length).toBe(4);
