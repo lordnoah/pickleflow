@@ -12,12 +12,8 @@ import {
   LayoutGrid,
   Medal,
   RefreshCw,
-  Play,
-  Pause,
-  RotateCcw,
   Info,
   X,
-  AlertCircle,
   CheckCircle,
   Coffee,
   Upload,
@@ -25,7 +21,6 @@ import {
   ExternalLink,
   Scale,
   Hash,
-  Bell,
   ArrowUpDown,
   Crown,
 } from 'lucide-react';
@@ -38,7 +33,7 @@ import {
   DURATION_OPTIONS,
   COURT_OPTIONS,
 } from './constants';
-import { Player, Match, Round, PlayerStats, View, TournamentSession } from './types';
+import { Player, Round, PlayerStats, View, TournamentSession } from './types';
 import { GAME_ENGINES, getEngine } from './lib/games/index';
 
 const App: React.FC = () => {
@@ -138,7 +133,7 @@ const App: React.FC = () => {
           setCurrentRoundIndex(data.currentRoundIndex);
         if (data.gameType) setGameType(data.gameType);
         setView(data.view || 'play');
-      } catch (err) {
+      } catch {
         alert('Invalid file format.');
       }
     };

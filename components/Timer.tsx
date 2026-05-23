@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, Bell, X } from 'lucide-react';
+import { Play, Pause, RotateCcw, Bell } from 'lucide-react';
 
 interface TimerProps {
   duration: number; // in minutes
@@ -30,7 +30,7 @@ export const Timer: React.FC<TimerProps> = ({ duration }) => {
       gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 1);
       osc.start();
       osc.stop(context.currentTime + 1);
-    } catch (e) {
+    } catch {
       /* ignore audio error */
     }
   };
