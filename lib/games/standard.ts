@@ -1,14 +1,6 @@
 import { Player, Match, Round, PlayerStats } from '../../types';
 import { GameEngine } from './types';
-
-function shuffle<T>(array: T[]): T[] {
-  const arr = [...array];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
+import { shuffle, getPartnerKey, updatePartnerHistory, bestPairing } from './utils';
 
 function generateSchedule(players: Player[], numRounds: number, courtCount: number): Round[] {
   if (players.length < 4) return [];
@@ -21,7 +13,7 @@ function generateSchedule(players: Player[], numRounds: number, courtCount: numb
     playCount[p.id] = 0;
     players.forEach((p2) => {
       if (p.id !== p2.id) {
-        partnerHistory[`${Math.min(p.id, p2.id)}-${Math.max(p.id, p2.id)}`] = 0;
+        partnerHistory[getPartnerKey(p, p2)] = 0;
       }
     });
   });
@@ -38,36 +30,17 @@ function generateSchedule(players: Player[], numRounds: number, courtCount: numb
 
     while (available.length >= 4) {
       const group = available.splice(0, 4);
-      const pairings = [
-        { t1: [group[0], group[1]], t2: [group[2], group[3]] },
-        { t1: [group[0], group[2]], t2: [group[1], group[3]] },
-        { t1: [group[0], group[3]], t2: [group[1], group[2]] },
-      ].sort((a, b) => {
-        const getH = (p1: Player, p2: Player) =>
-          partnerHistory[`${Math.min(p1.id, p2.id)}-${Math.max(p1.id, p2.id)}`] || 0;
-        return (
-          getH(a.t1[0], a.t1[1]) +
-          getH(a.t2[0], a.t2[1]) -
-          (getH(b.t1[0], b.t1[1]) + getH(b.t2[0], b.t2[1]))
-        );
-      });
+      const pairing = bestPairing(group, partnerHistory);
 
-      const best = pairings[0];
-
-      best.t1.forEach((p) => playCount[p.id]++);
-      best.t2.forEach((p) => playCount[p.id]++);
-      partnerHistory[
-        `${Math.min(best.t1[0].id, best.t1[1].id)}-${Math.max(best.t1[0].id, best.t1[1].id)}`
-      ]++;
-      partnerHistory[
-        `${Math.min(best.t2[0].id, best.t2[1].id)}-${Math.max(best.t2[0].id, best.t2[1].id)}`
-      ]++;
+      pairing.t1.forEach((p) => playCount[p.id]++);
+      pairing.t2.forEach((p) => playCount[p.id]++);
+      updatePartnerHistory(partnerHistory, pairing.t1, pairing.t2);
 
       roundMatches.push({
         id: `r${r}-c${cNum}`,
         court: cNum++,
-        team1: best.t1,
-        team2: best.t2,
+        team1: pairing.t1,
+        team2: pairing.t2,
         score1: '0',
         score2: '0',
         completed: false,
@@ -85,7 +58,7 @@ function calculateLeaderboard(
   rounds: Round[],
   sortKey: 'avgPoints' | 'pointsFor',
 ): PlayerStats[] {
-  const stats: Record<number, any> = {};
+  const stats: Record<number, Omit<PlayerStats, 'avgPoints' | 'displayRank'>> = {};
 
   players.forEach((p) => {
     stats[p.id] = {
@@ -98,20 +71,22 @@ function calculateLeaderboard(
       gamesPlayed: 0,
       pointsFor: 0,
       pointsAgainst: 0,
+      diff: 0,
     };
   });
 
   rounds.forEach((r) =>
     r.matches.forEach((m) => {
       if (!m.completed) return;
-      const s1 = parseInt(m.score1) || 0;
-      const s2 = parseInt(m.score2) || 0;
+      const s1 = parseInt(m.score1, 10) || 0;
+      const s2 = parseInt(m.score2, 10) || 0;
 
       m.team1.forEach((p) => {
         if (stats[p.id]) {
           stats[p.id].gamesPlayed++;
           stats[p.id].pointsFor += s1;
           stats[p.id].pointsAgainst += s2;
+          stats[p.id].diff += s1 - s2;
           if (s1 > s2) stats[p.id].wins++;
           else if (s1 < s2) stats[p.id].losses++;
           else stats[p.id].ties++;
@@ -123,6 +98,7 @@ function calculateLeaderboard(
           stats[p.id].gamesPlayed++;
           stats[p.id].pointsFor += s2;
           stats[p.id].pointsAgainst += s1;
+          stats[p.id].diff += s2 - s1;
           if (s2 > s1) stats[p.id].wins++;
           else if (s2 < s1) stats[p.id].losses++;
           else stats[p.id].ties++;
@@ -132,14 +108,14 @@ function calculateLeaderboard(
   );
 
   const sorted = Object.values(stats)
-    .filter((s: any) => s.gamesPlayed > 0)
-    .map((s: any) => ({
+    .filter((s) => s.gamesPlayed > 0)
+    .map((s) => ({
       ...s,
       avgPoints: s.pointsFor / s.gamesPlayed,
     }))
-    .sort((a: any, b: any) => b[sortKey] - a[sortKey] || b.wins - a.wins);
+    .sort((a, b) => b[sortKey] - a[sortKey] || b.wins - a.wins);
 
-  return sorted.map((p: any, i: number) => ({ ...p, displayRank: i + 1 })) as PlayerStats[];
+  return sorted.map((p, i) => ({ ...p, displayRank: i + 1 })) as PlayerStats[];
 }
 
 export const standardEngine: GameEngine = {

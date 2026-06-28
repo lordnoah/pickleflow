@@ -1,13 +1,14 @@
 import React from 'react';
 
 export const DEFAULT_PLAYERS = [
-  { id: 1, name: 'David M' },
-  { id: 2, name: 'Noah M' },
-  { id: 3, name: 'Graham B' },
-  { id: 4, name: 'Morgan R' },
-  { id: 5, name: 'Casey H' },
-  { id: 6, name: 'Riley F' },
+  { id: 1, name: '' },
+  { id: 2, name: '' },
+  { id: 3, name: '' },
+  { id: 4, name: '' },
+  { id: 5, name: '' },
+  { id: 6, name: '' },
 ];
+
 
 export const ROUND_OPTIONS = [4, 5, 6, 7, 8, 9, 10, 11, 12];
 export const DURATION_OPTIONS = [10, 12, 15, 20];

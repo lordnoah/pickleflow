@@ -6,7 +6,7 @@ interface TimerProps {
 }
 
 export const Timer: React.FC<TimerProps> = ({ duration }) => {
-  const [timeLeft, setTimeLeft] = useState(duration * 60);
+  const [timeLeftMs, setTimeLeftMs] = useState(duration * 60 * 1000);
   const [timerActive, setTimerActive] = useState(false);
   const [targetTime, setTargetTime] = useState<number | null>(null);
   const [showTimeUp, setShowTimeUp] = useState(false);
@@ -16,7 +16,8 @@ export const Timer: React.FC<TimerProps> = ({ duration }) => {
   // --- AUDIO ALERTS ---
   const playAlert = () => {
     try {
-      const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+      const AudioContextClass =
+        (window as any).AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
       const context = new AudioContextClass();
       const osc = context.createOscillator();
@@ -35,18 +36,19 @@ export const Timer: React.FC<TimerProps> = ({ duration }) => {
     }
   };
 
-  // --- INTERVAL TICKING WITH WAKE-UP SELF-CORRECTION ---
+  // --- INTERVAL TICKING WITH WAKE-UP SELF-CORRECTION & MILLISECOND PRECISION ---
   useEffect(() => {
     if (timerActive && targetTime) {
       timerRef.current = window.setInterval(() => {
-        const remaining = Math.max(0, Math.round((targetTime - Date.now()) / 1000));
-        setTimeLeft(remaining);
+        const remaining = Math.max(0, targetTime - Date.now());
+        setTimeLeftMs(remaining);
         if (remaining === 0) {
           setTimerActive(false);
+          setTargetTime(null);
           setShowTimeUp(true);
           playAlert();
         }
-      }, 500);
+      }, 100); // check every 100ms for high responsiveness
     }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -94,7 +96,7 @@ export const Timer: React.FC<TimerProps> = ({ duration }) => {
       setTimerActive(false);
       setTargetTime(null);
     } else {
-      setTargetTime(Date.now() + timeLeft * 1000);
+      setTargetTime(Date.now() + timeLeftMs);
       setTimerActive(true);
     }
   };
@@ -102,12 +104,13 @@ export const Timer: React.FC<TimerProps> = ({ duration }) => {
   const handleReset = () => {
     setTimerActive(false);
     setTargetTime(null);
-    setTimeLeft(duration * 60);
+    setTimeLeftMs(duration * 60 * 1000);
   };
 
-  const formatTime = (s: number) => {
-    const mins = Math.floor(s / 60);
-    const secs = s % 60;
+  const formatTime = (ms: number) => {
+    const totalSeconds = Math.ceil(ms / 1000);
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
@@ -122,7 +125,7 @@ export const Timer: React.FC<TimerProps> = ({ duration }) => {
           <RotateCcw size={16} />
         </button>
         <span className="font-mono font-black text-lime-600 tracking-widest text-lg select-none">
-          {formatTime(timeLeft)}
+          {formatTime(timeLeftMs)}
         </span>
         <button
           onClick={toggleTimer}

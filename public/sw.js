@@ -1,6 +1,6 @@
-const CACHE_NAME = 'pickleflow-v3';
+const CACHE_NAME = 'pickleflow-v4';
 
-self.addEventListener('install', (event) => {
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
@@ -24,8 +24,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Skip caching chrome extension requests or other non-http/https schemes
-  if (!event.request.url.startsWith('http')) {
+  // Constrain caching to same-origin resources to avoid bloating cache with external scripts/requests
+  const requestUrl = new URL(event.request.url);
+  if (requestUrl.origin !== self.location.origin) {
     return;
   }
 

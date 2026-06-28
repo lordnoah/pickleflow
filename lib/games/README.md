@@ -4,7 +4,7 @@ This directory contains the pluggable scheduling and standings calculation logic
 
 ## 🏗️ Architecture
 
-All game engines implement the `GameEngine` interface defined in [types.ts](../../types.ts):
+All game engines implement the `GameEngine` interface defined in [types.ts](types.ts):
 
 ```typescript
 export interface GameEngine {
@@ -23,6 +23,14 @@ export interface GameEngine {
   calculateLeaderboard(players: Player[], rounds: Round[], sortKey: 'avgPoints' | 'pointsFor'): PlayerStats[];
 }
 ```
+
+## 🛠️ Shared Utilities
+
+Common logic used across multiple game engines is extracted to [utils.ts](utils.ts) to avoid code duplication and enhance maintainability:
+- `shuffle<T>`: Standard Fisher-Yates array shuffling.
+- `getPartnerKey`: Generates a consistent, sorted key representing a pair of player IDs.
+- `updatePartnerHistory`: Tracks pairing frequency to maximize play-mixing fairness.
+- `bestPairing`: Calculates the optimal match pairings for a court based on partnership histories.
 
 ## 🔌 Registering Engines
 

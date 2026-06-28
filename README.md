@@ -24,18 +24,23 @@ PickleFlow Pro is a high-performance, local-first Progressive Web App (PWA) desi
 pickleflow/
 ├── components/
 │   ├── Card.tsx          # Styled layout wrapper
-│   └── Timer.tsx         # Self-contained match timer & Wake Lock
+│   ├── Timer.tsx         # Self-contained match timer & Wake Lock
+│   ├── SetupView.tsx     # Setup roster and tournament configuration
+│   ├── PlayView.tsx      # Play current round matches & reporting
+│   ├── ScheduleView.tsx  # Display full tournament schedule grid
+│   └── StatsView.tsx     # Leaderboard standings & scoring rules explanation
 ├── lib/
 │   └── games/            # Pluggable scheduling & leaderboard engines
 │       ├── types.ts      # GameEngine interface definitions
+│       ├── utils.ts      # Shared logic helpers (shuffle, pairing history)
 │       ├── standard.ts   # Standard mixing Round Robin
 │       └── kingAndQueen.ts # Dynamic court-movement manager
 ├── public/               # Static PWA assets (bundled at root)
 │   ├── icon.png          # App launcher icon
 │   ├── manifest.json     # PWA descriptor configuration
 │   └── sw.js             # Service Worker (Stale-While-Revalidate caching)
-├── App.tsx               # Main view container, roster, and score cards
-├── index.css             # Tailwind CSS v4 & custom scrollbar styles
+├── App.tsx               # Root component directing main layout and state
+├── index.css             # Tailwind CSS v4 & custom scrollbar & font styles
 ├── index.tsx             # Application entrypoint & SW registration
 ├── types.ts              # Global type interfaces
 └── tsconfig.json         # TypeScript compiler configurations
@@ -43,9 +48,9 @@ pickleflow/
 
 ### Key Technical Aspects:
 1. **Build Tool & Bundler**: Vite compile-time CSS/JS bundling.
-2. **Styling**: Tailwind CSS v4 (pre-compiled at build time for high performance and offline safety).
-3. **Data Persistence**: React state bound directly to local storage triggers for automatic caching.
-4. **PWA Standalone Setup**: Manifest metadata coupled with a Service Worker running a **Stale-While-Revalidate** network strategy.
+2. **Styling**: Tailwind CSS v4 and a premium, system-default offline-ready font stack for high performance and zero external font CDN dependencies.
+3. **Data Persistence**: React state bound directly to local storage hooks with try/catch serialization protection.
+4. **PWA Standalone Setup**: Manifest metadata coupled with a Service Worker running a same-origin **Stale-While-Revalidate** network caching strategy.
 
 ---
 

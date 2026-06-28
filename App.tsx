@@ -1,40 +1,21 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  Users,
-  Trophy,
   Settings,
-  Plus,
-  Trash2,
-  CheckCircle2,
-  ChevronLeft,
   PlayCircle,
-  Edit2,
   LayoutGrid,
-  Medal,
-  RefreshCw,
-  Info,
-  X,
-  CheckCircle,
-  Coffee,
+  Trophy,
   Upload,
   Download,
-  ExternalLink,
-  Scale,
-  Hash,
-  ArrowUpDown,
-  Crown,
+  RefreshCw,
 } from 'lucide-react';
-import { Card } from './components/Card';
-import { Timer } from './components/Timer';
-import {
-  PickleFlowLogo,
-  DEFAULT_PLAYERS,
-  ROUND_OPTIONS,
-  DURATION_OPTIONS,
-  COURT_OPTIONS,
-} from './constants';
+import { SetupView } from './components/SetupView';
+import { PlayView } from './components/PlayView';
+import { ScheduleView } from './components/ScheduleView';
+import { StatsView } from './components/StatsView';
+import { PickleFlowLogo, DEFAULT_PLAYERS } from './constants';
 import { Player, Round, PlayerStats, View, TournamentSession } from './types';
-import { GAME_ENGINES, getEngine } from './lib/games/index';
+import { getEngine } from './lib/games/index';
+import { validateSession } from './lib/games/session';
 
 const App: React.FC = () => {
   const handleWipe = () => {
@@ -44,32 +25,71 @@ const App: React.FC = () => {
     }
   };
 
-  // --- CORE STATE ---
-  const [view, setView] = useState<View>(
-    () => (localStorage.getItem('pf_view') as View) || 'setup',
-  );
-  const [players, setPlayers] = useState<Player[]>(() => {
-    const saved = localStorage.getItem('pf_players');
-    return saved ? JSON.parse(saved) : DEFAULT_PLAYERS;
+  // --- CORE STATE WITH TRY/CATCH PROTECTION ---
+  const [view, setView] = useState<View>(() => {
+    try {
+      return (localStorage.getItem('pf_view') as View) || 'setup';
+    } catch {
+      return 'setup';
+    }
   });
-  const [rounds, setRounds] = useState<Round[]>(() =>
-    JSON.parse(localStorage.getItem('pf_rounds') || '[]'),
-  );
-  const [currentRoundIndex, setCurrentRoundIndex] = useState<number>(() =>
-    parseInt(localStorage.getItem('pf_round_idx') || '0'),
-  );
-  const [courtCount, setCourtCount] = useState(() =>
-    parseInt(localStorage.getItem('pf_courts') || '3'),
-  );
-  const [numRounds, setNumRounds] = useState(() =>
-    parseInt(localStorage.getItem('pf_num_rounds') || '8'),
-  );
-  const [selectedDuration, setSelectedDuration] = useState(() =>
-    parseInt(localStorage.getItem('pf_duration') || '15'),
-  );
-  const [gameType, setGameType] = useState<string>(
-    () => localStorage.getItem('pf_game_type') || 'standard',
-  );
+
+  const [players, setPlayers] = useState<Player[]>(() => {
+    try {
+      const saved = localStorage.getItem('pf_players');
+      return saved ? JSON.parse(saved) : DEFAULT_PLAYERS;
+    } catch {
+      return DEFAULT_PLAYERS;
+    }
+  });
+
+  const [rounds, setRounds] = useState<Round[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('pf_rounds') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  const [currentRoundIndex, setCurrentRoundIndex] = useState<number>(() => {
+    try {
+      return parseInt(localStorage.getItem('pf_round_idx') || '0', 10);
+    } catch {
+      return 0;
+    }
+  });
+
+  const [courtCount, setCourtCount] = useState<number>(() => {
+    try {
+      return parseInt(localStorage.getItem('pf_courts') || '3', 10);
+    } catch {
+      return 3;
+    }
+  });
+
+  const [numRounds, setNumRounds] = useState<number>(() => {
+    try {
+      return parseInt(localStorage.getItem('pf_num_rounds') || '8', 10);
+    } catch {
+      return 8;
+    }
+  });
+
+  const [selectedDuration, setSelectedDuration] = useState<number>(() => {
+    try {
+      return parseInt(localStorage.getItem('pf_duration') || '15', 10);
+    } catch {
+      return 15;
+    }
+  });
+
+  const [gameType, setGameType] = useState<string>(() => {
+    try {
+      return localStorage.getItem('pf_game_type') || 'standard';
+    } catch {
+      return 'standard';
+    }
+  });
 
   const [showInfo, setShowInfo] = useState(false);
   const [sortKey, setSortKey] = useState<'avgPoints' | 'pointsFor'>('avgPoints');
@@ -83,17 +103,70 @@ const App: React.FC = () => {
     return firstIncompleteIdx === -1 ? rounds.length - 1 : firstIncompleteIdx;
   }, [rounds]);
 
-  // --- PERSISTENCE ---
+  // --- INDIVIDUAL EFFECT WRITING TO DEBOUNCE / PREVENT EXCESS WORK ---
   useEffect(() => {
-    localStorage.setItem('pf_view', view);
-    localStorage.setItem('pf_players', JSON.stringify(players));
-    localStorage.setItem('pf_rounds', JSON.stringify(rounds));
-    localStorage.setItem('pf_round_idx', currentRoundIndex.toString());
-    localStorage.setItem('pf_courts', courtCount.toString());
-    localStorage.setItem('pf_num_rounds', numRounds.toString());
-    localStorage.setItem('pf_duration', selectedDuration.toString());
-    localStorage.setItem('pf_game_type', gameType);
-  }, [view, players, rounds, currentRoundIndex, courtCount, numRounds, selectedDuration, gameType]);
+    try {
+      localStorage.setItem('pf_view', view);
+    } catch (e) {
+      console.warn('Failed to save pf_view:', e);
+    }
+  }, [view]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pf_players', JSON.stringify(players));
+    } catch (e) {
+      console.warn('Failed to save pf_players:', e);
+    }
+  }, [players]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pf_rounds', JSON.stringify(rounds));
+    } catch (e) {
+      console.warn('Failed to save pf_rounds:', e);
+    }
+  }, [rounds]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pf_round_idx', currentRoundIndex.toString());
+    } catch (e) {
+      console.warn('Failed to save pf_round_idx:', e);
+    }
+  }, [currentRoundIndex]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pf_courts', courtCount.toString());
+    } catch (e) {
+      console.warn('Failed to save pf_courts:', e);
+    }
+  }, [courtCount]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pf_num_rounds', numRounds.toString());
+    } catch (e) {
+      console.warn('Failed to save pf_num_rounds:', e);
+    }
+  }, [numRounds]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pf_duration', selectedDuration.toString());
+    } catch (e) {
+      console.warn('Failed to save pf_duration:', e);
+    }
+  }, [selectedDuration]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pf_game_type', gameType);
+    } catch (e) {
+      console.warn('Failed to save pf_game_type:', e);
+    }
+  }, [gameType]);
 
   // --- EXPORT/IMPORT ---
   const handleExport = () => {
@@ -123,16 +196,22 @@ const App: React.FC = () => {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const data = JSON.parse(e.target?.result as string);
-        if (data.players) setPlayers(data.players);
-        if (data.rounds) setRounds(data.rounds);
-        if (data.courtCount) setCourtCount(data.courtCount);
-        if (data.numRounds) setNumRounds(data.numRounds);
-        if (data.selectedDuration) setSelectedDuration(data.selectedDuration);
-        if (typeof data.currentRoundIndex === 'number')
-          setCurrentRoundIndex(data.currentRoundIndex);
-        if (data.gameType) setGameType(data.gameType);
-        setView(data.view || 'play');
+        const rawData = JSON.parse(e.target?.result as string);
+        const data = validateSession(rawData);
+        if (data) {
+          setPlayers(data.players);
+          if (data.rounds) setRounds(data.rounds);
+          if (data.courtCount) setCourtCount(data.courtCount);
+          if (data.numRounds) setNumRounds(data.numRounds);
+          if (data.selectedDuration) setSelectedDuration(data.selectedDuration);
+          if (typeof data.currentRoundIndex === 'number') {
+            setCurrentRoundIndex(data.currentRoundIndex);
+          }
+          if (data.gameType) setGameType(data.gameType);
+          setView(data.view || 'play');
+        } else {
+          alert('Invalid tournament data file.');
+        }
       } catch {
         alert('Invalid file format.');
       }
@@ -140,18 +219,23 @@ const App: React.FC = () => {
     reader.readAsText(file);
   };
 
-  // --- PLAYER MANAGEMENT ---
-  const nameParts = newPlayerName
-    .trim()
-    .split(/\s+/)
-    .filter((p) => p.length > 0);
-  const isValidName = nameParts.length >= 2 && nameParts[0].length > 1;
-  const formattedPreview = useMemo(() => {
-    if (!isValidName) return '';
+  // --- PLAYER PREVIEW MEMO WITH PROPER DEPENDENCIES ---
+  const { isValidName, formattedPreview } = useMemo(() => {
+    const nameParts = newPlayerName
+      .trim()
+      .split(/\s+/)
+      .filter((p) => p.length > 0);
+    const valid = nameParts.length >= 2 && nameParts[0].length > 1;
+    if (!valid) {
+      return { isValidName: false, formattedPreview: '' };
+    }
     const first = nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1).toLowerCase();
     const lastInitial = nameParts[nameParts.length - 1].charAt(0).toUpperCase();
-    return `${first} ${lastInitial}.`;
-  }, [nameParts, isValidName]);
+    return {
+      isValidName: true,
+      formattedPreview: `${first} ${lastInitial}.`,
+    };
+  }, [newPlayerName]);
 
   const isDuplicate = useMemo(
     () => players.some((p) => p.name.toLowerCase() === formattedPreview.toLowerCase()),
@@ -182,8 +266,10 @@ const App: React.FC = () => {
   const handleDeletePlayer = (id: number) => {
     const deletedPlayer = players.find((p) => p.id === id);
     if (rounds.length > 0) {
+      // Use unique negative offset based on timestamp to avoid collisions
+      const subId = -(Date.now() + Math.floor(Math.random() * 1000));
       setPlayers((prev) =>
-        prev.map((p) => (p.id === id ? { id: -id, name: `[SUB] ${p.name}` } : p))
+        prev.map((p) => (p.id === id ? { id: subId, name: `[SUB] ${p.name}` } : p))
       );
       setRounds((prev) =>
         prev.map((round, rIdx) => {
@@ -195,17 +281,17 @@ const App: React.FC = () => {
                 return {
                   ...m,
                   team1: m.team1.map((p) =>
-                    p.id === id ? { id: -id, name: `[SUB] ${deletedPlayer?.name || ''}` } : p
+                    p.id === id ? { id: subId, name: `[SUB] ${deletedPlayer?.name || ''}` } : p
                   ),
                   team2: m.team2.map((p) =>
-                    p.id === id ? { id: -id, name: `[SUB] ${deletedPlayer?.name || ''}` } : p
+                    p.id === id ? { id: subId, name: `[SUB] ${deletedPlayer?.name || ''}` } : p
                   ),
                 };
               }
               return m;
             }),
             sittingOut: round.sittingOut.map((p) =>
-              p.id === id ? { id: -id, name: `[SUB] ${deletedPlayer?.name || ''}` } : p
+              p.id === id ? { id: subId, name: `[SUB] ${deletedPlayer?.name || ''}` } : p
             ),
           };
         }),
@@ -219,7 +305,13 @@ const App: React.FC = () => {
   const engine = getEngine(gameType);
 
   const handleGenerateSchedule = () => {
-    const newRounds = engine.generateInitialRounds(players, numRounds, courtCount);
+    const finalizedPlayers = players.map((p, idx) => ({
+      ...p,
+      name: p.name.trim() || `Player ${idx + 1}`,
+    }));
+    setPlayers(finalizedPlayers);
+
+    const newRounds = engine.generateInitialRounds(finalizedPlayers, numRounds, courtCount);
     if (newRounds.length > 0) {
       setRounds(newRounds);
       setCurrentRoundIndex(0);
@@ -250,10 +342,10 @@ const App: React.FC = () => {
           : {
               ...round,
               matches: round.matches.map((m) =>
-                m.id === matchId ? (team === 1 ? { ...m, score1: val } : { ...m, score2: val }) : m,
+                m.id === matchId ? (team === 1 ? { ...m, score1: val } : { ...m, score2: val }) : m
               ),
-            },
-      ),
+            }
+      )
     );
   };
 
@@ -270,21 +362,21 @@ const App: React.FC = () => {
             <div className="flex gap-4">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex flex-col items-center text-slate-400 hover:text-lime-600 transition-colors"
+                className="flex flex-col items-center text-slate-400 hover:text-lime-600 transition-colors cursor-pointer"
               >
                 <Upload size={18} />
                 <span className="text-[8px] font-black uppercase mt-1">Import</span>
               </button>
               <button
                 onClick={handleExport}
-                className="flex flex-col items-center text-slate-400 hover:text-lime-600 transition-colors"
+                className="flex flex-col items-center text-slate-400 hover:text-lime-600 transition-colors cursor-pointer"
               >
                 <Download size={18} />
                 <span className="text-[8px] font-black uppercase mt-1">Export</span>
               </button>
               <button
                 onClick={handleWipe}
-                className="flex flex-col items-center text-slate-400 hover:text-rose-500 transition-colors"
+                className="flex flex-col items-center text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
               >
                 <RefreshCw size={18} />
                 <span className="text-[8px] font-black uppercase mt-1">Wipe</span>
@@ -310,7 +402,11 @@ const App: React.FC = () => {
                 <button
                   key={item.id}
                   onClick={() => setView(item.id as View)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-[10px] font-black transition-all ${view === item.id ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm' : 'text-slate-500'}`}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                    view === item.id
+                      ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
                 >
                   <item.icon size={16} /> <span className="uppercase">{item.label}</span>
                 </button>
@@ -322,561 +418,63 @@ const App: React.FC = () => {
 
       <main className="max-w-4xl mx-auto px-4 mt-6">
         {view === 'setup' && (
-          <div className="max-w-2xl mx-auto space-y-6">
-            <Card className="p-6">
-              <h2 className="text-xl font-black text-lime-600 uppercase flex items-center gap-3 mb-6">
-                <Users size={24} /> Players ({players.length})
-              </h2>
-              <div className="space-y-3 mb-6">
-                <div className="flex gap-2 relative">
-                  <input
-                    type="text"
-                    value={newPlayerName}
-                    onChange={(e) => setNewPlayerName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddPlayer()}
-                    placeholder="First Last"
-                    className={`flex-1 bg-slate-100 dark:bg-slate-700 rounded-xl pl-4 pr-12 py-4 outline-none font-bold border-2 transition-all ${newPlayerName.trim() === '' ? 'border-transparent' : isDuplicate ? 'border-rose-500' : isValidName ? 'border-lime-500' : 'border-orange-400'}`}
-                  />
-                  {isValidName && !isDuplicate && (
-                    <button
-                      onClick={handleAddPlayer}
-                      className="px-7 rounded-xl bg-lime-600 text-white shadow-lg"
-                    >
-                      <Plus size={32} />
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-2 max-h-[40vh] overflow-y-auto pr-1">
-                {players.map((p, idx) => (
-                  <div
-                    key={p.id}
-                    className="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border"
-                  >
-                    <div className="flex items-center gap-2 flex-1 mr-4">
-                      <span className="font-black text-slate-400 text-sm">{idx + 1}.</span>
-                      <input
-                        type="text"
-                        value={p.name}
-                        onChange={(e) => handleRenamePlayer(p.id, e.target.value)}
-                        className="bg-transparent font-black outline-none w-full border-b border-transparent focus:border-lime-500 transition-colors py-0.5"
-                      />
-                    </div>
-                    <button
-                      onClick={() => handleDeletePlayer(p.id)}
-                      className="text-slate-300 hover:text-rose-500 p-2"
-                    >
-                      <Trash2 size={20} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </Card>
-            {/* Game Type Selector */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl border overflow-hidden">
-              <h3 className="text-[10px] font-black text-slate-400 uppercase px-4 pt-4 pb-2">
-                Game Type
-              </h3>
-              <div className="flex flex-col">
-                {GAME_ENGINES.map((eng) => (
-                  <button
-                    key={eng.id}
-                    onClick={() => setGameType(eng.id)}
-                    className={`flex items-start gap-3 px-4 py-3 text-left transition-all border-t first:border-t-0 ${
-                      gameType === eng.id
-                        ? 'bg-lime-50 dark:bg-lime-900/20 border-lime-200 dark:border-lime-800'
-                        : 'border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50'
-                    }`}
-                  >
-                    <div
-                      className={`w-4 h-4 rounded-full border-2 mt-0.5 shrink-0 flex items-center justify-center ${
-                        gameType === eng.id ? 'border-lime-600' : 'border-slate-300'
-                      }`}
-                    >
-                      {gameType === eng.id && <div className="w-2 h-2 rounded-full bg-lime-600" />}
-                    </div>
-                    <div>
-                      <p
-                        className={`font-black text-sm ${gameType === eng.id ? 'text-lime-700 dark:text-lime-400' : 'text-slate-700 dark:text-slate-200'}`}
-                      >
-                        {eng.name}
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{eng.description}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* K&Q player count warning */}
-            {gameType === 'king_and_queen' && !kqPlayerCountValid && (
-              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-sm">
-                <p className="font-black text-amber-700 dark:text-amber-400 uppercase text-xs mb-1">
-                  Player Count Required
-                </p>
-                <p className="text-amber-600 dark:text-amber-500 text-xs leading-relaxed">
-                  King &amp; Queen requires exactly <strong>{courtCount * 4} players</strong> for{' '}
-                  {courtCount} courts ({courtCount} × 4). You currently have{' '}
-                  <strong>{players.length}</strong>.
-                </p>
-              </div>
-            )}
-
-            <div className="grid grid-cols-3 gap-4">
-              {gameType === 'standard' && (
-                <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border text-center">
-                  <h3 className="text-[10px] font-black text-slate-400 uppercase">Rounds</h3>
-                  <select
-                    value={numRounds}
-                    onChange={(e) => setNumRounds(parseInt(e.target.value))}
-                    className="w-full bg-transparent font-black text-xl text-lime-600"
-                  >
-                    {ROUND_OPTIONS.map((o) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border text-center">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase">Min / Round</h3>
-                <select
-                  value={selectedDuration}
-                  onChange={(e) => {
-                    setSelectedDuration(parseInt(e.target.value));
-                  }}
-                  className="w-full bg-transparent font-black text-xl text-lime-600"
-                >
-                  {DURATION_OPTIONS.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border text-center">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase">Courts</h3>
-                <select
-                  value={courtCount}
-                  onChange={(e) => setCourtCount(parseInt(e.target.value))}
-                  className="w-full bg-transparent font-black text-xl text-lime-600"
-                >
-                  {COURT_OPTIONS.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <button
-              onClick={handleGenerateSchedule}
-              disabled={
-                players.length < 4 || (gameType === 'king_and_queen' && !kqPlayerCountValid)
-              }
-              className={`w-full py-6 rounded-2xl font-black text-2xl uppercase italic tracking-tighter shadow-xl transition-all ${
-                players.length < 4 || (gameType === 'king_and_queen' && !kqPlayerCountValid)
-                  ? 'bg-slate-200 text-slate-400'
-                  : 'bg-lime-600 text-white'
-              }`}
-            >
-              Start Tournament
-            </button>
-          </div>
+          <SetupView
+            players={players}
+            newPlayerName={newPlayerName}
+            setNewPlayerName={setNewPlayerName}
+            handleAddPlayer={handleAddPlayer}
+            handleRenamePlayer={handleRenamePlayer}
+            handleDeletePlayer={handleDeletePlayer}
+            gameType={gameType}
+            setGameType={setGameType}
+            courtCount={courtCount}
+            setCourtCount={setCourtCount}
+            numRounds={numRounds}
+            setNumRounds={setNumRounds}
+            selectedDuration={selectedDuration}
+            setSelectedDuration={setSelectedDuration}
+            handleGenerateSchedule={handleGenerateSchedule}
+            kqPlayerCountValid={kqPlayerCountValid}
+            isValidName={isValidName}
+            isDuplicate={isDuplicate}
+          />
         )}
 
-        {view === 'play' && rounds[currentRoundIndex] && (
-          <div className="max-w-2xl mx-auto space-y-6 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border shadow-md flex items-center justify-between">
-              <button
-                onClick={() => setCurrentRoundIndex(Math.max(0, currentRoundIndex - 1))}
-                disabled={currentRoundIndex === 0}
-                className="p-2 text-slate-400 disabled:opacity-20"
-              >
-                <ChevronLeft size={32} />
-              </button>
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-2">
-                  <p className="text-2xl font-black uppercase italic">
-                    Round {currentRoundIndex + 1}
-                  </p>
-                  {currentRoundIndex === trueActiveRoundIndex && (
-                    <span className="bg-lime-500 text-white text-[8px] px-2 py-0.5 rounded-full font-black animate-pulse uppercase tracking-widest">
-                      ACTIVE
-                    </span>
-                  )}
-                </div>
-                <Timer key={`${currentRoundIndex}-${selectedDuration}`} duration={selectedDuration} />
-              </div>
-              <button
-                onClick={() =>
-                  currentRoundIndex < rounds.length - 1
-                    ? setCurrentRoundIndex(currentRoundIndex + 1)
-                    : setView('leaderboard')
-                }
-                className="p-2 text-slate-400 rotate-180"
-              >
-                <ChevronLeft size={32} />
-              </button>
-            </div>
-            {/* K&Q: Generate Next Round button when current round is done */}
-            {engine.isDynamic && currentRoundComplete && isLastRound && (
-              <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-4 rounded-2xl flex items-center justify-between shadow-lg">
-                <div>
-                  <p className="text-white font-black uppercase text-xs tracking-widest">
-                    Round {currentRoundIndex + 1} Complete!
-                  </p>
-                  <p className="text-amber-100 text-[10px] mt-0.5">
-                    Courts reshuffled — winners move up, losers move down.
-                  </p>
-                </div>
-                <button
-                  onClick={handleGenerateNextRound}
-                  className="bg-white text-amber-600 font-black text-xs uppercase px-5 py-3 rounded-xl shadow active:scale-95 transition-all whitespace-nowrap"
-                >
-                  Next Round →
-                </button>
-              </div>
-            )}
-            <div className="invisible h-0"></div>
-
-            <div className="space-y-6">
-              {rounds[currentRoundIndex].matches.map((match) => (
-                <Card
-                  key={match.id}
-                  className={`${match.completed ? 'opacity-60 grayscale-[0.5]' : 'border-l-8 border-lime-500 shadow-lg'}`}
-                >
-                  <div className={`px-4 py-2 flex justify-between items-center ${engine.isDynamic && match.court === 1 ? 'bg-gradient-to-r from-amber-600 to-yellow-500' : 'bg-slate-900'} text-white`}>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                      {engine.isDynamic && match.court === 1 && <Crown size={13} className="text-yellow-200" />}
-                      Court {match.court}
-                      {engine.isDynamic && match.court === 1 && <span className="text-yellow-200 normal-case font-bold">· 2× pts</span>}
-                    </span>
-                    {match.completed && <CheckCircle size={14} className="text-lime-400" />}
-                  </div>
-                  <div className="p-4 space-y-4">
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center bg-lime-50/50 dark:bg-lime-900/10 p-3 rounded-xl border border-lime-100">
-                        <div className="flex-1 font-black uppercase text-sm text-lime-800 dark:text-lime-400">
-                          {match.team1[0]?.name}
-                          <br />
-                          {match.team1[1]?.name}
-                        </div>
-                        <input
-                          type="tel"
-                          value={match.score1}
-                          onChange={(e) => updateScore(match.id, 1, e.target.value)}
-                          onFocus={(e) => e.target.select()}
-                          className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl text-center text-3xl font-black border-2 border-lime-200 outline-none focus:border-lime-500 transition-colors"
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-4">
-                        <div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-800" />
-                        <span className="text-[10px] font-black text-slate-400 uppercase italic">
-                          VS
-                        </span>
-                        <div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-800" />
-                      </div>
-
-                      <div className="flex justify-between items-center bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100">
-                        <div className="flex-1 font-black uppercase text-sm text-blue-800 dark:text-blue-400">
-                          {match.team2[0]?.name}
-                          <br />
-                          {match.team2[1]?.name}
-                        </div>
-                        <input
-                          type="tel"
-                          value={match.score2}
-                          onChange={(e) => updateScore(match.id, 2, e.target.value)}
-                          onFocus={(e) => e.target.select()}
-                          className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl text-center text-3xl font-black border-2 border-blue-200 outline-none focus:border-blue-500 transition-colors"
-                        />
-                      </div>
-                    </div>
-
-                    {(() => {
-                      const s1 = parseInt(match.score1) || 0;
-                      const s2 = parseInt(match.score2) || 0;
-                      const isTied = s1 === s2;
-                      const blockTie = engine.isDynamic && isTied && !match.completed;
-                      return (
-                        <div className="space-y-1">
-                          {blockTie && (
-                            <p className="text-center text-[10px] font-black text-amber-600 uppercase tracking-widest">
-                              ⚠ Ties not allowed — play out the final point!
-                            </p>
-                          )}
-                          <button
-                            disabled={blockTie}
-                            onClick={() =>
-                              setRounds((prev) =>
-                                prev.map((r) => ({
-                                  ...r,
-                                  matches: r.matches.map((m) =>
-                                    m.id === match.id ? { ...m, completed: !m.completed } : m,
-                                  ),
-                                })),
-                              )
-                            }
-                            className={`w-full py-4 rounded-xl font-black text-xs uppercase flex items-center justify-center gap-2 transition-all active:scale-95 ${
-                              match.completed
-                                ? 'bg-slate-100 text-slate-500'
-                                : blockTie
-                                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                  : 'bg-lime-600 text-white shadow-lg'
-                            }`}
-                          >
-                            {match.completed ? (
-                              <><Edit2 size={18} /> Edit Scores</>
-                            ) : (
-                              <><CheckCircle2 size={18} /> Add Final Score</>
-                            )}
-                          </button>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </Card>
-              ))}
-
-              {rounds[currentRoundIndex].sittingOut.length > 0 && (
-                <div className="bg-orange-50 dark:bg-orange-950/20 border-2 border-dashed border-orange-200 dark:border-orange-900/50 rounded-2xl p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="bg-orange-500 p-2 rounded-lg text-white">
-                      <Coffee size={20} />
-                    </div>
-                    <h4 className="font-black uppercase italic text-orange-600 tracking-tight">
-                      Sitting Out This Round
-                    </h4>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {rounds[currentRoundIndex].sittingOut.map((p) => (
-                      <span
-                        key={p.id}
-                        className="bg-white dark:bg-slate-800 px-4 py-2 rounded-xl border border-orange-100 dark:border-orange-900/30 font-black text-sm uppercase text-orange-700 shadow-sm"
-                      >
-                        {p.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+        {view === 'play' && (
+          <PlayView
+            rounds={rounds}
+            currentRoundIndex={currentRoundIndex}
+            setCurrentRoundIndex={setCurrentRoundIndex}
+            selectedDuration={selectedDuration}
+            trueActiveRoundIndex={trueActiveRoundIndex}
+            engine={engine}
+            currentRoundComplete={currentRoundComplete}
+            isLastRound={isLastRound}
+            handleGenerateNextRound={handleGenerateNextRound}
+            updateScore={updateScore}
+            setRounds={setRounds}
+            setView={setView}
+          />
         )}
 
         {view === 'summary' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pb-24 animate-in fade-in zoom-in-95">
-            {rounds.map((round, rIdx) => {
-              const isActive = rIdx === trueActiveRoundIndex;
-              return (
-                <Card
-                  key={rIdx}
-                  className={`p-4 transition-all duration-300 ${isActive ? 'ring-4 ring-lime-500 scale-[1.02] shadow-2xl bg-white z-10' : 'opacity-60 grayscale-[0.2]'}`}
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <button
-                      onClick={() => {
-                        setCurrentRoundIndex(rIdx);
-                        setView('play');
-                      }}
-                      className="flex flex-col items-start group"
-                    >
-                      <h3
-                        className={`font-black uppercase italic flex items-center gap-1 ${isActive ? 'text-lime-600 text-lg' : 'text-slate-400 text-xs'}`}
-                      >
-                        Round {round.number} <ExternalLink size={isActive ? 14 : 10} />
-                      </h3>
-                    </button>
-                    {isActive && (
-                      <span className="bg-lime-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse uppercase tracking-widest">
-                        ACTIVE
-                      </span>
-                    )}
-                  </div>
-                  <div className="space-y-4">
-                    {round.matches.map((m, mIdx) => (
-                      <div
-                        key={mIdx}
-                        className={`p-3 rounded-xl border ${isActive ? 'border-lime-100 bg-lime-50/30' : 'border-slate-100 dark:border-slate-800'}`}
-                      >
-                        <div className="flex justify-between text-[8px] font-bold text-slate-400 mb-2 uppercase">
-                          <span>Court {m.court}</span>
-                          {m.completed && (
-                            <span className="text-lime-600 font-black">
-                              Final: {m.score1}-{m.score2}
-                            </span>
-                          )}
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[11px] font-black uppercase leading-none">
-                            {m.team1.map((p) => p.name).join(' & ')}
-                          </p>
-                          <div className="flex items-center gap-2 py-1">
-                            <div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-800" />
-                            <span className="text-[7px] font-black text-slate-400 uppercase">
-                              VS
-                            </span>
-                            <div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-800" />
-                          </div>
-                          <p className="text-[11px] font-black uppercase leading-none">
-                            {m.team2.map((p) => p.name).join(' & ')}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                    {round.sittingOut.length > 0 && (
-                      <div className="mt-2 pt-3 border-t-2 border-dotted border-orange-200">
-                        <div className="flex items-center gap-1.5 mb-1 text-orange-500">
-                          <Coffee size={10} />
-                          <p className="text-[8px] font-black uppercase text-orange-400">
-                            Resting:
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {round.sittingOut.map((p) => (
-                            <span
-                              key={p.id}
-                              className="text-[10px] font-bold text-orange-700/80 px-1"
-                            >
-                              {p.name}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
+          <ScheduleView
+            rounds={rounds}
+            trueActiveRoundIndex={trueActiveRoundIndex}
+            setCurrentRoundIndex={setCurrentRoundIndex}
+            setView={setView}
+          />
         )}
 
         {view === 'leaderboard' && (
-          <div className="max-w-3xl mx-auto space-y-6 pb-24">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-              <div>
-                <h2 className="text-4xl font-black italic uppercase tracking-tighter">Standings</h2>
-                <button
-                  onClick={() => setShowInfo(true)}
-                  className="mt-2 flex items-center gap-1.5 text-lime-600 font-black text-[10px] uppercase tracking-widest hover:underline"
-                >
-                  <Info size={14} /> How scoring works
-                </button>
-              </div>
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border self-start">
-                <span className="text-[8px] font-black uppercase text-slate-400 px-2 flex items-center gap-1">
-                  <ArrowUpDown size={10} /> Sort By:
-                </span>
-                <button
-                  onClick={() => setSortKey('avgPoints')}
-                  className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${sortKey === 'avgPoints' ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm' : 'text-slate-500'}`}
-                >
-                  Avg PPG
-                </button>
-                <button
-                  onClick={() => setSortKey('pointsFor')}
-                  className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${sortKey === 'pointsFor' ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm' : 'text-slate-500'}`}
-                >
-                  Total Pts
-                </button>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 gap-3">
-              {leaderboard.map((stat, idx) => (
-                <div
-                  key={stat.id}
-                  className={`flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border-2 transition-all ${idx < 3 ? 'border-lime-500 shadow-lg scale-[1.01]' : 'border-slate-100 dark:border-slate-800 opacity-90'}`}
-                >
-                  <div
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl shrink-0 ${idx < 3 ? 'bg-lime-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}
-                  >
-                    {stat.displayRank}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-black text-lg uppercase truncate flex items-center gap-2">
-                      {stat.name} {idx === 0 && <Medal size={20} className="text-amber-400" />}
-                    </h4>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      W-L-T: {stat.wins}-{stat.losses}-{stat.ties} • {stat.gamesPlayed} Games
-                    </p>
-                  </div>
-                  <div className="flex gap-4 md:gap-8 items-center shrink-0 pr-2">
-                    <div
-                      className={`text-right ${sortKey === 'pointsFor' ? 'opacity-100' : 'opacity-50'}`}
-                    >
-                      <div className="text-lg font-black">{stat.pointsFor}</div>
-                      <p className="text-[8px] font-black text-slate-400 uppercase">Total</p>
-                    </div>
-                    <div
-                      className={`text-right ${sortKey === 'avgPoints' ? 'opacity-100' : 'opacity-50'}`}
-                    >
-                      <div className="text-lg font-black text-lime-600">
-                        {stat.avgPoints.toFixed(1)}
-                      </div>
-                      <p className="text-[8px] font-black text-slate-400 uppercase">PPG</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <StatsView
+            leaderboard={leaderboard}
+            sortKey={sortKey}
+            setSortKey={setSortKey}
+            showInfo={showInfo}
+            setShowInfo={setShowInfo}
+          />
         )}
-
-        {showInfo && (
-          <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
-            <Card className="max-w-xl w-full p-8 relative animate-in zoom-in-95 duration-200">
-              <button
-                onClick={() => setShowInfo(false)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-rose-500 transition-colors"
-              >
-                <X size={24} />
-              </button>
-              <h3 className="text-3xl font-black uppercase italic text-lime-600 flex items-center gap-2 mb-6">
-                <Trophy size={28} /> Scoring Logic
-              </h3>
-              <div className="space-y-6">
-                <div className="bg-slate-50 dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
-                  <div className="flex items-center gap-2 text-lime-600 mb-3 font-black uppercase text-xs tracking-widest">
-                    <Hash size={18} /> Primary: Points Per Game (PPG)
-                  </div>
-                  <p className="text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">
-                    To maintain fairness when players sit out, we use <strong>PPG</strong> as the
-                    primary metric. It measures efficiency—how many points you generate every time
-                    you step on the court. This prevents a player from dropping in rank just because
-                    the schedule gave them a rest round.
-                  </p>
-                </div>
-                <div className="bg-slate-50 dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
-                  <div className="flex items-center gap-2 text-blue-600 mb-3 font-black uppercase text-xs tracking-widest">
-                    <Scale size={18} /> Secondary: Total Points For
-                  </div>
-                  <p className="text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">
-                    If two players have identical PPG, we look at <strong>Total Points For</strong>.
-                    This rewards volume and consistency across the entire session. It’s the ultimate
-                    tie-breaker to see who has been the most productive overall.
-                  </p>
-                </div>
-                <div className="p-4 bg-lime-50 dark:bg-lime-900/10 rounded-xl border border-lime-100 dark:border-lime-900/30">
-                  <p className="text-[10px] font-black text-lime-700 dark:text-lime-400 uppercase leading-normal tracking-wide italic">
-                    Note: Wins/Losses/Ties are tracked for your personal record, but points are the
-                    currency of PickleFlow standings. Every point matters!
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowInfo(false)}
-                className="w-full mt-8 py-5 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg active:scale-95 transition-all"
-              >
-                Back to Leaderboard
-              </button>
-            </Card>
-          </div>
-        )}
-
-
       </main>
     </div>
   );

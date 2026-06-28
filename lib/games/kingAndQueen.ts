@@ -1,49 +1,10 @@
 import { Player, Match, Round, PlayerStats } from '../../types';
 import { GameEngine } from './types';
+import { shuffle, getPartnerKey, updatePartnerHistory, bestPairing } from './utils';
 
 /** Court 1 is the King/Queen court — winners here earn double leaderboard points */
 const KINGS_COURT = 1;
 const DOUBLE_POINTS_MULTIPLIER = 2;
-
-/**
- * Pick the best pairing from a 4-player group by minimising how often
- * these two players have been partners before.
- */
-function bestPairing(
-  group: Player[],
-  partnerHistory: Record<string, number>,
-): { t1: Player[]; t2: Player[] } {
-  const getH = (p1: Player, p2: Player) =>
-    partnerHistory[`${Math.min(p1.id, p2.id)}-${Math.max(p1.id, p2.id)}`] || 0;
-
-  const options = [
-    { t1: [group[0], group[1]], t2: [group[2], group[3]] },
-    { t1: [group[0], group[2]], t2: [group[1], group[3]] },
-    { t1: [group[0], group[3]], t2: [group[1], group[2]] },
-  ];
-
-  return options.sort(
-    (a, b) =>
-      getH(a.t1[0], a.t1[1]) +
-      getH(a.t2[0], a.t2[1]) -
-      (getH(b.t1[0], b.t1[1]) + getH(b.t2[0], b.t2[1])),
-  )[0];
-}
-
-function updatePartnerHistory(history: Record<string, number>, t1: Player[], t2: Player[]): void {
-  const key = (a: Player, b: Player) => `${Math.min(a.id, b.id)}-${Math.max(a.id, b.id)}`;
-  history[key(t1[0], t1[1])] = (history[key(t1[0], t1[1])] || 0) + 1;
-  history[key(t2[0], t2[1])] = (history[key(t2[0], t2[1])] || 0) + 1;
-}
-
-function shuffle<T>(array: T[]): T[] {
-  const arr = [...array];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
 
 /**
  * Generates Round 1 by randomly assigning players to courts,
@@ -98,7 +59,9 @@ function generateNextRound(
   const partnerHistory: Record<string, number> = {};
   players.forEach((p) =>
     players.forEach((p2) => {
-      if (p.id !== p2.id) partnerHistory[`${Math.min(p.id, p2.id)}-${Math.max(p.id, p2.id)}`] = 0;
+      if (p.id !== p2.id) {
+        partnerHistory[getPartnerKey(p, p2)] = 0;
+      }
     }),
   );
   completedRounds.forEach((r) =>
@@ -110,8 +73,8 @@ function generateNextRound(
 
   /** players[courtIndex] = [winner1, winner2, loser1, loser2] */
   const courtResults: { winners: Player[]; losers: Player[] }[] = sortedMatches.map((m) => {
-    const s1 = parseInt(m.score1) || 0;
-    const s2 = parseInt(m.score2) || 0;
+    const s1 = parseInt(m.score1, 10) || 0;
+    const s2 = parseInt(m.score2, 10) || 0;
     return s1 >= s2 ? { winners: m.team1, losers: m.team2 } : { winners: m.team2, losers: m.team1 };
   });
 
@@ -174,7 +137,7 @@ function calculateLeaderboard(
   rounds: Round[],
   sortKey: 'avgPoints' | 'pointsFor',
 ): PlayerStats[] {
-  const stats: Record<number, any> = {};
+  const stats: Record<number, Omit<PlayerStats, 'avgPoints' | 'displayRank'>> = {};
 
   players.forEach((p) => {
     stats[p.id] = {
@@ -187,14 +150,15 @@ function calculateLeaderboard(
       gamesPlayed: 0,
       pointsFor: 0,
       pointsAgainst: 0,
+      diff: 0,
     };
   });
 
   rounds.forEach((r) =>
     r.matches.forEach((m) => {
       if (!m.completed) return;
-      const s1 = parseInt(m.score1) || 0;
-      const s2 = parseInt(m.score2) || 0;
+      const s1 = parseInt(m.score1, 10) || 0;
+      const s2 = parseInt(m.score2, 10) || 0;
       const isKingsCourt = m.court === KINGS_COURT;
 
       // Winners on Court 1 get double points for their leaderboard total
@@ -207,6 +171,7 @@ function calculateLeaderboard(
         const multiplier = isKingsCourt && t1Won ? DOUBLE_POINTS_MULTIPLIER : 1;
         stats[p.id].pointsFor += s1 * multiplier;
         stats[p.id].pointsAgainst += s2;
+        stats[p.id].diff += s1 - s2;
         if (t1Won) stats[p.id].wins++;
         else if (t2Won) stats[p.id].losses++;
         else stats[p.id].ties++;
@@ -218,6 +183,7 @@ function calculateLeaderboard(
         const multiplier = isKingsCourt && t2Won ? DOUBLE_POINTS_MULTIPLIER : 1;
         stats[p.id].pointsFor += s2 * multiplier;
         stats[p.id].pointsAgainst += s1;
+        stats[p.id].diff += s2 - s1;
         if (t2Won) stats[p.id].wins++;
         else if (t1Won) stats[p.id].losses++;
         else stats[p.id].ties++;
@@ -226,14 +192,14 @@ function calculateLeaderboard(
   );
 
   const sorted = Object.values(stats)
-    .filter((s: any) => s.gamesPlayed > 0)
-    .map((s: any) => ({
+    .filter((s) => s.gamesPlayed > 0)
+    .map((s) => ({
       ...s,
       avgPoints: s.pointsFor / s.gamesPlayed,
     }))
-    .sort((a: any, b: any) => b[sortKey] - a[sortKey] || b.wins - a.wins);
+    .sort((a, b) => b[sortKey] - a[sortKey] || b.wins - a.wins);
 
-  return sorted.map((p: any, i: number) => ({ ...p, displayRank: i + 1 })) as PlayerStats[];
+  return sorted.map((p, i) => ({ ...p, displayRank: i + 1 })) as PlayerStats[];
 }
 
 export const kingAndQueenEngine: GameEngine = {
@@ -246,7 +212,9 @@ export const kingAndQueenEngine: GameEngine = {
     const partnerHistory: Record<string, number> = {};
     players.forEach((p) =>
       players.forEach((p2) => {
-        if (p.id !== p2.id) partnerHistory[`${Math.min(p.id, p2.id)}-${Math.max(p.id, p2.id)}`] = 0;
+        if (p.id !== p2.id) {
+          partnerHistory[getPartnerKey(p, p2)] = 0;
+        }
       }),
     );
     return [generateFirstRound(players, courtCount, partnerHistory)];
