@@ -76,4 +76,41 @@ describe('Standard Engine Logic', () => {
     expect(leaderboard[0].displayRank).toBe(1);
     expect(leaderboard[leaderboard.length - 1].avgPoints).toBe(5);
   });
+
+  it('should generate a standard schedule with 0 repeat partnerships for 13, 14, and 15 players across 6 rounds', () => {
+    const getPartnerKey = (p1: Player, p2: Player): string => {
+      return `${Math.min(p1.id, p2.id)}-${Math.max(p1.id, p2.id)}`;
+    };
+
+    [13, 14, 15].forEach((count) => {
+      const players = Array.from({ length: count }, (_, idx) => ({ id: idx + 1, name: `Player ${idx + 1}` }));
+      const courtCount = 3;
+      const numRounds = 6;
+
+      const rounds = standardEngine.generateInitialRounds(players, numRounds, courtCount);
+      expect(rounds.length).toBe(numRounds);
+
+      const partnerCounts: Record<string, number> = {};
+      let repeatPairings = 0;
+
+      rounds.forEach((round) => {
+        round.matches.forEach((match) => {
+          expect(match.team1.length).toBe(2);
+          expect(match.team2.length).toBe(2);
+
+          const key1 = getPartnerKey(match.team1[0], match.team1[1]);
+          const key2 = getPartnerKey(match.team2[0], match.team2[1]);
+
+          partnerCounts[key1] = (partnerCounts[key1] || 0) + 1;
+          partnerCounts[key2] = (partnerCounts[key2] || 0) + 1;
+        });
+      });
+
+      Object.values(partnerCounts).forEach((c) => {
+        if (c > 1) repeatPairings += c - 1;
+      });
+
+      expect(repeatPairings).toBe(0);
+    });
+  });
 });

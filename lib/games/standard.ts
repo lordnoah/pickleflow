@@ -1,6 +1,139 @@
 import { Player, Match, Round, PlayerStats } from '../../types';
 import { GameEngine } from './types';
-import { shuffle, getPartnerKey, updatePartnerHistory, bestPairing } from './utils';
+import { shuffle, getPartnerKey, updatePartnerHistory } from './utils';
+
+function findBestPairings(
+  active: Player[],
+  partnerHistory: Record<string, number>,
+): { t1: Player[]; t2: Player[] }[] {
+  function getHistory(p1: Player, p2: Player): number {
+    return partnerHistory[getPartnerKey(p1, p2)] || 0;
+  }
+
+  function getPairingCost(pA: Player, pB: Player): number {
+    const h = getHistory(pA, pB);
+    return h === 0 ? 0 : Math.pow(10, h);
+  }
+
+  // Greedy generator for quick initial upper bound
+  function findGreedyPairings(remainingPlayers: Player[]) {
+    const remaining = [...remainingPlayers];
+    const matches: { t1: Player[]; t2: Player[] }[] = [];
+    let cost = 0;
+
+    while (remaining.length >= 4) {
+      const first = remaining[0];
+      let bestOpt: { t1: Player[]; t2: Player[]; cost: number } | null = null;
+      let bestIdxs: number[] = [];
+
+      for (let i = 1; i < remaining.length; i++) {
+        for (let j = i + 1; j < remaining.length; j++) {
+          for (let k = j + 1; k < remaining.length; k++) {
+            const p1 = remaining[i];
+            const p2 = remaining[j];
+            const p3 = remaining[k];
+
+            const options = [
+              { t1: [first, p1], t2: [p2, p3], cost: getPairingCost(first, p1) + getPairingCost(p2, p3) },
+              { t1: [first, p2], t2: [p1, p3], cost: getPairingCost(first, p2) + getPairingCost(p1, p3) },
+              { t1: [first, p3], t2: [p1, p2], cost: getPairingCost(first, p3) + getPairingCost(p1, p2) },
+            ];
+
+            for (const opt of options) {
+              if (bestOpt === null || opt.cost < bestOpt.cost) {
+                bestOpt = opt;
+                bestIdxs = [i, j, k];
+              }
+            }
+          }
+        }
+      }
+
+      if (!bestOpt) break;
+      matches.push({ t1: bestOpt.t1, t2: bestOpt.t2 });
+      cost += bestOpt.cost;
+
+      const sortedIdxs = [0, ...bestIdxs].sort((a, b) => b - a);
+      sortedIdxs.forEach((idx) => {
+        remaining.splice(idx, 1);
+      });
+    }
+
+    return { matches, cost };
+  }
+
+  const greedyResult = findGreedyPairings(active);
+  if (greedyResult.cost === 0) {
+    return greedyResult.matches;
+  }
+
+  let bestResult = greedyResult;
+  let nodeCount = 0;
+  const maxNodes = 50000;
+
+  function search(
+    remaining: Player[],
+    currentMatches: { t1: Player[]; t2: Player[] }[],
+    currentCost: number,
+  ) {
+    nodeCount++;
+    if (nodeCount > maxNodes) {
+      return;
+    }
+
+    if (currentCost >= bestResult.cost) {
+      return;
+    }
+
+    if (remaining.length === 0) {
+      if (currentCost < bestResult.cost) {
+        bestResult = { matches: [...currentMatches], cost: currentCost };
+      }
+      return;
+    }
+
+    const first = remaining[0];
+    const rest = remaining.slice(1);
+
+    for (let i = 0; i < rest.length; i++) {
+      for (let j = i + 1; j < rest.length; j++) {
+        for (let k = j + 1; k < rest.length; k++) {
+          const p1 = rest[i];
+          const p2 = rest[j];
+          const p3 = rest[k];
+
+          const options = [
+            { t1: [first, p1], t2: [p2, p3], cost: getPairingCost(first, p1) + getPairingCost(p2, p3) },
+            { t1: [first, p2], t2: [p1, p3], cost: getPairingCost(first, p2) + getPairingCost(p1, p3) },
+            { t1: [first, p3], t2: [p1, p2], cost: getPairingCost(first, p3) + getPairingCost(p1, p2) },
+          ];
+
+          options.sort((a, b) => a.cost - b.cost);
+
+          const nextRemaining: Player[] = [];
+          for (let idx = 0; idx < rest.length; idx++) {
+            if (idx !== i && idx !== j && idx !== k) {
+              nextRemaining.push(rest[idx]);
+            }
+          }
+
+          for (const opt of options) {
+            currentMatches.push({ t1: opt.t1, t2: opt.t2 });
+            search(nextRemaining, currentMatches, currentCost + opt.cost);
+            currentMatches.pop();
+
+            if (bestResult.cost === 0) {
+              return;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  search(active, [], 0);
+  return bestResult.matches;
+}
 
 function generateSchedule(players: Player[], numRounds: number, courtCount: number): Round[] {
   if (players.length < 4) return [];
@@ -24,14 +157,12 @@ function generateSchedule(players: Player[], numRounds: number, courtCount: numb
 
     const slots = Math.min(players.length - (players.length % 4), courtCount * 4);
     const active = sorted.slice(0, slots);
-    const available = [...active];
+
+    const pairingResult = findBestPairings(active, partnerHistory);
     const roundMatches: Match[] = [];
     let cNum = 1;
 
-    while (available.length >= 4) {
-      const group = available.splice(0, 4);
-      const pairing = bestPairing(group, partnerHistory);
-
+    pairingResult.forEach((pairing) => {
       pairing.t1.forEach((p) => playCount[p.id]++);
       pairing.t2.forEach((p) => playCount[p.id]++);
       updatePartnerHistory(partnerHistory, pairing.t1, pairing.t2);
@@ -45,7 +176,7 @@ function generateSchedule(players: Player[], numRounds: number, courtCount: numb
         score2: '0',
         completed: false,
       });
-    }
+    });
 
     newRounds.push({ number: r + 1, matches: roundMatches, sittingOut: sorted.slice(slots) });
   }
