@@ -19,8 +19,14 @@ export interface GameEngine {
   // Generates the next round based on completed match results (used by dynamic engines)
   generateNextRound(players: Player[], completedRounds: Round[], courtCount: number): Round | null;
   
-  // Custom leaderboard sorter and differential calculator
-  calculateLeaderboard(players: Player[], rounds: Round[], sortKey: 'avgPoints' | 'pointsFor'): PlayerStats[];
+  // Custom leaderboard sorter and differential calculator. If limitScoresCount is defined, 
+  // aggregates stats using only the first N matches played chronologically by each player.
+  calculateLeaderboard(
+    players: Player[],
+    rounds: Round[],
+    sortKey: 'avgPoints' | 'pointsFor',
+    limitScoresCount?: number,
+  ): PlayerStats[];
 }
 ```
 

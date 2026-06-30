@@ -10,10 +10,11 @@ PickleFlow Pro is a high-performance, local-first Progressive Web App (PWA) desi
 
 - ⚖️ **Fair-Play Algorithm**: Our smart scheduling engine ensures everyone plays an equal number of games, with a focus on pairing you with new teammates and opponents every round.
 - 👑 **King & Queen of the Court Mode**: Dynamic court-movement system. Winners move up courts (towards Court 1), losers move down, and partners split. Court 1 winners earn double leaderboard points.
+- 📝 **Live Schedule Overrides**: Hand-edit players directly in any generated match using an overlay editor with duplicate protection. Resting states update automatically.
 - ⏱️ **Integrated Timer & Wake Lock**: Stay on schedule with a high-visibility match timer featuring "Time's Up" audio buzzers. Employs the **Screen Wake Lock API** to keep mobile screens active on the court.
-- 📊 **Real-Time Standings**: Track Wins, Losses, and Point Differentials instantly. Handles custom tie-breakers using PPG (Points Per Game) and Total Points.
+- 📊 **Capped Standings & Real-Time Stats**: Limit leaderboard calculations to each player's first $N$ matches for fair comparisons across varying game volumes. Track Wins, Losses, differentials, and averages.
 - 📅 **Intelligent History**: Automatic session snapshots mean you never lose your progress. Stop a session today and resume it next week with one tap.
-- 📱 **Mobile Optimized PWA**: Fully installable on iOS and Android. Designed for high-glare outdoor environments with massive touch targets and bold, readable typography.
+- 📱 **Mobile & Laptop Scaled PWA**: Fully installable on iOS and Android with massive touch targets. Features responsive layout overrides to automatically scale text and cards for high readability on laptop displays.
 - 🔒 **Privacy-First & Offline-Capable**: Your data is yours. 100% of the tournament data is stored locally in your browser's secure cache. Runs fully offline on remote courts with custom Service Worker caching.
 
 ---
@@ -27,8 +28,8 @@ pickleflow/
 │   ├── Timer.tsx         # Self-contained match timer & Wake Lock
 │   ├── SetupView.tsx     # Setup roster and tournament configuration
 │   ├── PlayView.tsx      # Play current round matches & reporting
-│   ├── ScheduleView.tsx  # Display full tournament schedule grid
-│   └── StatsView.tsx     # Leaderboard standings & scoring rules explanation
+│   ├── ScheduleView.tsx  # Display full tournament schedule grid with editing and responsive scaling
+│   └── StatsView.tsx     # Leaderboard standings with limit to first N games and scoring rules
 ├── lib/
 │   └── games/            # Pluggable scheduling & leaderboard engines
 │       ├── types.ts      # GameEngine interface definitions
@@ -102,8 +103,8 @@ Tap **Start Tournament** to load the **Play** screen:
 
 ### 4. Review & Share
 At any point, switch to the **Stats** or **Schedule** tabs:
-- **Schedule**: View the full day's pairings.
-- **Stats**: View the live leaderboard based on PPG and Total Points. Tap **Export** in the header to save a snapshot file or share results with your group chat.
+- **Schedule**: View the full day's pairings. Click the **Pencil icon** next to any court header to edit a match's roster dynamically (e.g. to swap players or handle sudden illness). The system automatically manages resting/active states.
+- **Stats**: View the live leaderboard based on PPG and Total Points. If players have completed different numbers of games, use the **Limit To** filter to cap calculations to the first $N$ matches for a level comparison. Tap **Export** in the header to save a snapshot file or share results with your group chat.
 
 ---
 
