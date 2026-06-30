@@ -23,7 +23,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
         return (
           <Card
             key={rIdx}
-            className={`p-4 transition-all duration-300 ${
+            className={`p-4 md:p-6 lg:p-7 transition-all duration-300 ${
               isActive
                 ? 'ring-4 ring-lime-500 scale-[1.02] shadow-2xl bg-white dark:bg-slate-800 z-10'
                 : 'opacity-60 grayscale-[0.2]'
@@ -38,17 +38,24 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                 className="flex flex-col items-start group cursor-pointer text-left"
               >
                 <h3
-                  className={`font-black uppercase italic flex items-center gap-1 transition-colors ${
+                  className={`font-black uppercase italic flex items-center gap-1.5 transition-colors ${
                     isActive
-                      ? 'text-lime-600 text-lg hover:text-lime-700'
-                      : 'text-slate-400 text-xs hover:text-slate-500'
+                      ? 'text-lime-600 text-lg md:text-xl lg:text-2xl hover:text-lime-700'
+                      : 'text-slate-400 text-xs md:text-sm lg:text-base hover:text-slate-500'
                   }`}
                 >
-                  Round {round.number} <ExternalLink size={isActive ? 14 : 10} />
+                  Round {round.number}{' '}
+                  <ExternalLink
+                    className={
+                      isActive
+                        ? 'w-3.5 h-3.5 md:w-4.5 md:h-4.5 lg:w-5 lg:h-5'
+                        : 'w-2.5 h-2.5 md:w-3.5 md:h-3.5 lg:w-4 lg:h-4'
+                    }
+                  />
                 </h3>
               </button>
               {isActive && (
-                <span className="bg-lime-500 text-white text-[8px] px-2 py-1 rounded-full font-black animate-pulse uppercase tracking-widest">
+                <span className="bg-lime-500 text-white text-[8px] md:text-[10px] lg:text-[11px] px-2 py-1 md:px-3 md:py-1 rounded-full font-black animate-pulse uppercase tracking-widest">
                   ACTIVE
                 </span>
               )}
@@ -57,13 +64,13 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
               {round.matches.map((m, mIdx) => (
                 <div
                   key={mIdx}
-                  className={`p-3 rounded-xl border ${
+                  className={`p-3 md:p-4 lg:p-4.5 rounded-xl md:rounded-2xl border ${
                     isActive
                       ? 'border-lime-100 dark:border-lime-900/30 bg-lime-50/30 dark:bg-lime-900/10'
                       : 'border-slate-100 dark:border-slate-800'
                   }`}
                 >
-                  <div className="flex justify-between text-[8px] font-bold text-slate-400 mb-2 uppercase">
+                  <div className="flex justify-between text-[8px] md:text-[10px] lg:text-[11px] font-bold text-slate-400 mb-2 uppercase">
                     <span>Court {m.court}</span>
                     {m.completed && (
                       <span className="text-lime-600 font-black">
@@ -72,17 +79,17 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                     )}
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[11px] font-black uppercase leading-none">
+                    <p className="text-[11px] md:text-[13px] lg:text-[14px] xl:text-[15px] font-black uppercase leading-none">
                       {m.team1.map((p) => p.name).join(' & ')}
                     </p>
                     <div className="flex items-center gap-2 py-1">
                       <div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-800" />
-                      <span className="text-[7px] font-black text-slate-400 uppercase">
+                      <span className="text-[7px] md:text-[9px] lg:text-[10px] font-black text-slate-400 uppercase">
                         VS
                       </span>
                       <div className="h-[1px] flex-1 bg-slate-200 dark:bg-slate-800" />
                     </div>
-                    <p className="text-[11px] font-black uppercase leading-none">
+                    <p className="text-[11px] md:text-[13px] lg:text-[14px] xl:text-[15px] font-black uppercase leading-none">
                       {m.team2.map((p) => p.name).join(' & ')}
                     </p>
                   </div>
@@ -91,8 +98,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
               {round.sittingOut.length > 0 && (
                 <div className="mt-2 pt-3 border-t-2 border-dotted border-orange-200 dark:border-orange-900/30">
                   <div className="flex items-center gap-1.5 mb-1 text-orange-500">
-                    <Coffee size={10} />
-                    <p className="text-[8px] font-black uppercase text-orange-400">
+                    <Coffee className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 lg:w-4 lg:h-4" />
+                    <p className="text-[8px] md:text-[10px] lg:text-[11px] font-black uppercase text-orange-400">
                       Resting:
                     </p>
                   </div>
@@ -100,7 +107,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                     {round.sittingOut.map((p) => (
                       <span
                         key={p.id}
-                        className="text-[10px] font-bold text-orange-700/80 dark:text-orange-500/80 px-1"
+                        className="text-[10px] md:text-[12px] lg:text-[13px] font-bold text-orange-700/80 dark:text-orange-500/80 px-1"
                       >
                         {p.name}
                       </span>
