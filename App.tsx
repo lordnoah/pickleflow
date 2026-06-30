@@ -335,6 +335,39 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateMatchPlayers = (
+    roundIndex: number,
+    matchId: string,
+    team1Players: Player[],
+    team2Players: Player[],
+  ) => {
+    setRounds((prev) =>
+      prev.map((round, rIdx) => {
+        if (rIdx !== roundIndex) return round;
+
+        const updatedMatches = round.matches.map((m) =>
+          m.id === matchId
+            ? { ...m, team1: team1Players, team2: team2Players }
+            : m
+        );
+
+        const activePlayerIds = new Set<number>();
+        updatedMatches.forEach((m) => {
+          m.team1.forEach((p) => activePlayerIds.add(p.id));
+          m.team2.forEach((p) => activePlayerIds.add(p.id));
+        });
+
+        const updatedSittingOut = players.filter((p) => !activePlayerIds.has(p.id));
+
+        return {
+          ...round,
+          matches: updatedMatches,
+          sittingOut: updatedSittingOut,
+        };
+      })
+    );
+  };
+
   const currentRoundComplete =
     rounds[currentRoundIndex]?.matches.every((m) => m.completed) ?? false;
   const isLastRound = currentRoundIndex === rounds.length - 1;
@@ -475,6 +508,8 @@ const App: React.FC = () => {
             trueActiveRoundIndex={trueActiveRoundIndex}
             setCurrentRoundIndex={setCurrentRoundIndex}
             setView={setView}
+            players={players}
+            onUpdateMatchPlayers={handleUpdateMatchPlayers}
           />
         )}
 
