@@ -22,6 +22,7 @@ export interface GameEngine {
     players: Player[],
     rounds: Round[],
     sortKey: 'avgPoints' | 'pointsFor',
+    limitScoresCount?: number,
   ): PlayerStats[];
   /**
    * Whether this engine requires round-by-round generation.

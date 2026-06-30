@@ -9,6 +9,9 @@ interface StatsViewProps {
   setSortKey: (key: 'avgPoints' | 'pointsFor') => void;
   showInfo: boolean;
   setShowInfo: (show: boolean) => void;
+  limitScoresCount: number | undefined;
+  setLimitScoresCount: (count: number | undefined) => void;
+  maxGamesPlayed: number;
 }
 
 export const StatsView: React.FC<StatsViewProps> = ({
@@ -17,6 +20,9 @@ export const StatsView: React.FC<StatsViewProps> = ({
   setSortKey,
   showInfo,
   setShowInfo,
+  limitScoresCount,
+  setLimitScoresCount,
+  maxGamesPlayed,
 }) => {
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-24 animate-in fade-in slide-in-from-bottom-2">
@@ -30,30 +36,55 @@ export const StatsView: React.FC<StatsViewProps> = ({
             <Info size={14} /> How scoring works
           </button>
         </div>
-        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border self-start">
-          <span className="text-[8px] font-black uppercase text-slate-400 px-2 flex items-center gap-1">
-            <ArrowUpDown size={10} /> Sort By:
-          </span>
-          <button
-            onClick={() => setSortKey('avgPoints')}
-            className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
-              sortKey === 'avgPoints'
-                ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-          >
-            Avg PPG
-          </button>
-          <button
-            onClick={() => setSortKey('pointsFor')}
-            className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
-              sortKey === 'pointsFor'
-                ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-          >
-            Total Pts
-          </button>
+        <div className="flex flex-wrap items-center gap-3 self-start">
+          {maxGamesPlayed > 1 && (
+            <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border">
+              <span className="text-[8px] font-black uppercase text-slate-400 px-2">
+                Limit To:
+              </span>
+              <select
+                value={limitScoresCount ?? 'all'}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setLimitScoresCount(val === 'all' ? undefined : parseInt(val, 10));
+                }}
+                className="bg-transparent font-black text-[10px] text-lime-600 outline-none pr-4 cursor-pointer uppercase border-none"
+              >
+                <option value="all" className="dark:bg-slate-800 dark:text-lime-500">All Games</option>
+                {Array.from({ length: maxGamesPlayed - 1 }, (_, i) => maxGamesPlayed - i).map((n) => (
+                  <option key={n} value={n} className="dark:bg-slate-800 dark:text-lime-500">
+                    First {n} Games
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border">
+            <span className="text-[8px] font-black uppercase text-slate-400 px-2 flex items-center gap-1">
+              <ArrowUpDown size={10} /> Sort By:
+            </span>
+            <button
+              onClick={() => setSortKey('avgPoints')}
+              className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                sortKey === 'avgPoints'
+                  ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              Avg PPG
+            </button>
+            <button
+              onClick={() => setSortKey('pointsFor')}
+              className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                sortKey === 'pointsFor'
+                  ? 'bg-white dark:bg-slate-700 text-lime-600 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              Total Pts
+            </button>
+          </div>
         </div>
       </div>
 

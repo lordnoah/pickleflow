@@ -136,8 +136,10 @@ function calculateLeaderboard(
   players: Player[],
   rounds: Round[],
   sortKey: 'avgPoints' | 'pointsFor',
+  limitScoresCount?: number,
 ): PlayerStats[] {
   const stats: Record<number, Omit<PlayerStats, 'avgPoints' | 'displayRank'>> = {};
+  const gamesCounted: Record<number, number> = {};
 
   players.forEach((p) => {
     stats[p.id] = {
@@ -152,6 +154,7 @@ function calculateLeaderboard(
       pointsAgainst: 0,
       diff: 0,
     };
+    gamesCounted[p.id] = 0;
   });
 
   rounds.forEach((r) =>
@@ -167,6 +170,10 @@ function calculateLeaderboard(
 
       m.team1.forEach((p) => {
         if (!stats[p.id]) return;
+        if (limitScoresCount !== undefined && gamesCounted[p.id] >= limitScoresCount) {
+          return;
+        }
+        gamesCounted[p.id]++;
         stats[p.id].gamesPlayed++;
         const multiplier = isKingsCourt && t1Won ? DOUBLE_POINTS_MULTIPLIER : 1;
         stats[p.id].pointsFor += s1 * multiplier;
@@ -179,6 +186,10 @@ function calculateLeaderboard(
 
       m.team2.forEach((p) => {
         if (!stats[p.id]) return;
+        if (limitScoresCount !== undefined && gamesCounted[p.id] >= limitScoresCount) {
+          return;
+        }
+        gamesCounted[p.id]++;
         stats[p.id].gamesPlayed++;
         const multiplier = isKingsCourt && t2Won ? DOUBLE_POINTS_MULTIPLIER : 1;
         stats[p.id].pointsFor += s2 * multiplier;

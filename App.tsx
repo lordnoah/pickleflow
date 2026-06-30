@@ -94,6 +94,7 @@ const App: React.FC = () => {
   const [showInfo, setShowInfo] = useState(false);
   const [sortKey, setSortKey] = useState<'avgPoints' | 'pointsFor'>('avgPoints');
   const [newPlayerName, setNewPlayerName] = useState('');
+  const [limitScoresCount, setLimitScoresCount] = useState<number | undefined>(undefined);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -209,6 +210,7 @@ const App: React.FC = () => {
           }
           if (data.gameType) setGameType(data.gameType);
           setView(data.view || 'play');
+          setLimitScoresCount(undefined);
         } else {
           alert('Invalid tournament data file.');
         }
@@ -320,6 +322,7 @@ const App: React.FC = () => {
       setRounds(newRounds);
       setCurrentRoundIndex(0);
       setView('play');
+      setLimitScoresCount(undefined);
     }
   };
 
@@ -354,8 +357,13 @@ const App: React.FC = () => {
   };
 
   const leaderboard = useMemo<PlayerStats[]>(() => {
-    return engine.calculateLeaderboard(players, rounds, sortKey);
-  }, [rounds, players, sortKey, engine]);
+    return engine.calculateLeaderboard(players, rounds, sortKey, limitScoresCount);
+  }, [rounds, players, sortKey, engine, limitScoresCount]);
+
+  const maxGamesPlayed = useMemo(() => {
+    const unlimitedLeaderboard = engine.calculateLeaderboard(players, rounds, sortKey);
+    return Math.max(...unlimitedLeaderboard.map((p) => p.gamesPlayed), 0);
+  }, [rounds, players, engine, sortKey]);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-12 font-sans text-slate-900 dark:text-slate-100 overflow-x-hidden">
@@ -477,6 +485,9 @@ const App: React.FC = () => {
             setSortKey={setSortKey}
             showInfo={showInfo}
             setShowInfo={setShowInfo}
+            limitScoresCount={limitScoresCount}
+            setLimitScoresCount={setLimitScoresCount}
+            maxGamesPlayed={maxGamesPlayed}
           />
         )}
       </main>

@@ -113,4 +113,49 @@ describe('Standard Engine Logic', () => {
       expect(repeatPairings).toBe(0);
     });
   });
+
+  it('calculateLeaderboard should correctly limit standings to first N scores', () => {
+    const mockRounds: Round[] = [
+      {
+        number: 1,
+        sittingOut: [],
+        matches: [
+          {
+            id: 'r0-c1',
+            court: 1,
+            team1: [mockPlayers[0], mockPlayers[1]],
+            team2: [mockPlayers[2], mockPlayers[3]],
+            score1: '10',
+            score2: '5',
+            completed: true,
+          },
+        ],
+      },
+      {
+        number: 2,
+        sittingOut: [],
+        matches: [
+          {
+            id: 'r1-c1',
+            court: 1,
+            team1: [mockPlayers[0], mockPlayers[2]],
+            team2: [mockPlayers[1], mockPlayers[3]],
+            score1: '100',
+            score2: '200',
+            completed: true,
+          },
+        ],
+      },
+    ];
+
+    const unlimited = standardEngine.calculateLeaderboard(mockPlayers, mockRounds, 'pointsFor');
+    const p1Unlimited = unlimited.find((p) => p.id === 1);
+    expect(p1Unlimited?.pointsFor).toBe(110);
+    expect(p1Unlimited?.gamesPlayed).toBe(2);
+
+    const limited = standardEngine.calculateLeaderboard(mockPlayers, mockRounds, 'pointsFor', 1);
+    const p1Limited = limited.find((p) => p.id === 1);
+    expect(p1Limited?.pointsFor).toBe(10);
+    expect(p1Limited?.gamesPlayed).toBe(1);
+  });
 });
