@@ -52,7 +52,7 @@ export const SetupView: React.FC<SetupViewProps> = ({
         <h2 className="text-xl font-black text-lime-600 uppercase flex items-center gap-3 mb-6">
           <Users size={24} /> Players ({players.length})
         </h2>
-        <div className="space-y-3 mb-6">
+        <div className="space-y-3 mb-8 relative">
           <div className="flex gap-2 relative">
             <input
               type="text"
@@ -60,7 +60,7 @@ export const SetupView: React.FC<SetupViewProps> = ({
               onChange={(e) => setNewPlayerName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddPlayer()}
               placeholder="First Last"
-              className={`flex-1 bg-slate-100 dark:bg-slate-700 rounded-xl pl-4 pr-12 py-4 outline-none font-bold border-2 transition-all ${
+              className={`flex-1 bg-slate-100 dark:bg-slate-700 rounded-xl pl-4 pr-4 py-4 outline-none font-bold border-2 transition-all ${
                 newPlayerName.trim() === ''
                   ? 'border-transparent'
                   : isDuplicate
@@ -70,15 +70,31 @@ export const SetupView: React.FC<SetupViewProps> = ({
                       : 'border-orange-400'
               }`}
             />
-            {isValidName && !isDuplicate && (
-              <button
-                onClick={handleAddPlayer}
-                className="px-7 rounded-xl bg-lime-600 text-white shadow-lg cursor-pointer"
-              >
-                <Plus size={32} />
-              </button>
-            )}
+            <button
+              onClick={handleAddPlayer}
+              disabled={!isValidName || isDuplicate}
+              className={`px-5 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all duration-200 cursor-pointer ${
+                isValidName && !isDuplicate
+                  ? 'bg-lime-600 text-white hover:bg-lime-700 hover:scale-[1.02] active:scale-[0.98]'
+                  : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed shadow-none'
+              }`}
+            >
+              <Plus size={20} />
+              <span className="hidden sm:inline">Add Player</span>
+            </button>
           </div>
+
+          {newPlayerName.trim() !== '' && (!isValidName || isDuplicate) && (
+            <div className="absolute top-full left-0 mt-1 z-50 bg-slate-800 dark:bg-slate-900 text-white text-xs px-3 py-2.5 rounded-xl shadow-xl border border-slate-700 dark:border-slate-800 flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
+              <div className="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0" />
+              <span className="font-semibold">
+                {isDuplicate
+                  ? 'This player is already in the roster.'
+                  : 'Please enter both a first and last name (e.g. Jane Doe).'}
+              </span>
+              <div className="absolute bottom-full left-6 -mb-1 w-2 h-2 bg-slate-800 dark:bg-slate-900 border-t border-l border-slate-700 dark:border-slate-800 rotate-45" />
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-1 gap-2 max-h-[40vh] overflow-y-auto pr-1">
           {players.map((p, idx) => (
