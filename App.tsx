@@ -238,8 +238,12 @@ const App: React.FC = () => {
   }, [newPlayerName]);
 
   const isDuplicate = useMemo(
-    () => players.some((p) => p.name.toLowerCase() === formattedPreview.toLowerCase()),
-    [players, formattedPreview],
+    () =>
+      isValidName &&
+      players.some(
+        (p) => p.name.trim() !== '' && p.name.toLowerCase() === formattedPreview.toLowerCase()
+      ),
+    [isValidName, players, formattedPreview],
   );
 
   const handleAddPlayer = () => {
